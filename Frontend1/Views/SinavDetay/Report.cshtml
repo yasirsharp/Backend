@@ -1,0 +1,533 @@
+﻿@using Core.Utilities.Results
+@using Entity.Concrete
+@using Entity.DTOs
+@using Microsoft.AspNetCore.Html
+@{
+    ViewData["Title"] = "Sınav Detayları";
+    var dbap = ViewData["DersBolumAkademikPersonel"] as IDataResult<List<DersBolumAkademikPersonel>>;
+    var dbapDetails = ViewData["DersBolumAkademikPersonelDetails"] as IDataResult<List<DersBolumAkademikPersonelDTO>>;
+    var derslikler = ViewData["Derslikler"] as IDataResult<List<Derslik>>;
+    var akademikPersoneller = ViewData["AkademikPersoneller"] as IDataResult<List<AkademikPersonel>>;
+    var sinavDetay = ViewData["SinavDetay"] as IDataResult<List<SinavDetayDTO>>;
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Sınav Takvimi</h3>
+                    <div class="float-end">
+                        <button type="button" class="btn btn-danger me-2" onclick="exportToPDF()">
+                            <i class="fas fa-file-pdf"></i> PDF Çıktısı Al
+                        </button>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#yeniSinavModal">
+                            Yeni Sınav Ekle
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" id="sinavlarTable">
+                            <thead>
+                                <tr>
+                                    <th>Ders</th>
+                                    <th>Öğretim Üyesi</th>
+                                    <th>Sınav Tarihi</th>
+                                    <th>Başlangıç Saati</th>
+                                    <th>Bitiş Saati</th>
+                                    <th>Derslikler</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (sinavDetay != null && sinavDetay.Success && sinavDetay.Data != null)
+                                {
+                                    @foreach (var sinav in sinavDetay.Data)
+                                    {
+                                        <tr>
+                                            <td>@sinav.DersAd</td>
+                                            <td>@sinav.AkademikPersonelAd</td>
+                                            <td>@sinav.SinavTarihi.ToString("dd/MM/yyyy")</td>
+                                            <td>@sinav.SinavBaslangicSaati.ToString(@"hh\:mm")</td>
+                                            <td>@sinav.SinavBitisSaati.ToString(@"hh\:mm")</td>
+                                            <td>
+                                                <button class="btn btn-info btn-sm" onclick="getDerslikler(@sinav.Id)">
+                                                    Derslikleri Göster
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-warning btn-sm" onclick="duzenle(@sinav.Id)">
+                                                    Düzenle
+                                                </button>
+                                                <button class="btn btn-danger btn-sm" onclick="sil(@sinav.Id)">
+                                                    Sil
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yeni Sınav Ekleme Modalı -->
+<div class="modal fade" id="yeniSinavModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Yeni Sınav Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="yeniSinavForm">
+                    <div class="mb-3">
+                        <label class="form-label">Ders</label>
+                        <select class="form-select" id="dbapId" required>
+                            @if (dbapDetails != null && dbapDetails.Success)
+                            {
+                                @foreach (var item in dbapDetails.Data)
+                                {
+                                    <option value="@item.Id">@item.DersAd - @item.AkademikPersonelAd</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Sınav Tarihi</label>
+                                <input type="date" class="form-control" id="sinavTarihi" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Başlangıç Saati</label>
+                                <input type="time" class="form-control" id="baslangicSaati" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Bitiş Saati</label>
+                                <input type="time" class="form-control" id="bitisSaati" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Derslikler ve Gözetmenler</label>
+                        <div id="dersliklerContainer">
+                            <div class="row mb-2 derslik-row">
+                                <div class="col-md-6">
+                                    <select class="form-select derslik-select" required>
+                                        <option value="">Derslik Seçin</option>
+                                        @if (derslikler != null && derslikler.Success)
+                                        {
+                                            @foreach (var derslik in derslikler.Data)
+                                            {
+                                                <option value="@derslik.Id">@derslik.Ad</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <select class="form-select gozetmen-select">
+                                        <option value="">Gözetmen Seçin</option>
+                                        @if (akademikPersoneller != null && akademikPersoneller.Success)
+                                        {
+                                            @foreach (var personel in akademikPersoneller.Data)
+                                            {
+                                                <option value="@personel.Id">@personel.Unvan @personel.Ad</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary mt-2" onclick="yeniDerslikEkle()">
+                            Derslik Ekle
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" onclick="sinavKaydet()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+    <script>
+        const PDF_CONFIG = {
+            format: {
+                orientation: 'l',
+                unit: 'mm',
+                format: 'a4'
+            },
+            styles: {
+                header: {
+                    fillColor: [51, 122, 183],
+                    textColor: [255, 255, 255]
+                },
+                table: {
+                    columnWidths: {
+                        dersAdi: 60,
+                        ogretimUyesi: 50,
+                        sinavTarihi: 30,
+                        saatAraligi: 30,
+                        derslikBilgisi: 70
+                    }
+                }
+            }
+        };
+
+        const PDFHelpers = {
+            formatDate: (date) => new Date(date).toLocaleDateString('tr-TR'),
+
+            generateFileName: () =>
+                `Sinav_Takvimi_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.pdf`,
+
+            async getDerslikBilgileri(sinavId) {
+                try {
+                    const response = await fetch(`/SinavDetay/GetSinavDersliklerDetay/${sinavId}`);
+                    const result = await response.json();
+
+                    if (!result.success) return 'Bilgi Yok';
+
+                    return result.data
+                        .map(d => `${d.derslikAdi}\n(${d.gozetmenAdi})`)
+                        .join('\n\n');
+                } catch (error) {
+                    console.error('Derslik bilgisi alma hatası:', error);
+                    return 'Bilgi Alınamadı';
+                }
+            }
+        };
+
+        const PDFGenerator = {
+            initDocument() {
+                const { jsPDF } = window.jspdf;
+                return new jsPDF(PDF_CONFIG.format);
+            },
+
+            drawHeader(doc) {
+                const { fillColor, textColor } = PDF_CONFIG.styles.header;
+
+                doc.setFillColor(...fillColor);
+                doc.rect(0, 0, 297, 15, 'F');
+
+                doc.setTextColor(...textColor);
+                doc.setFontSize(16);
+                doc.text('SINAV TAKVİMİ', 10, 10);
+
+                doc.setFontSize(10);
+                doc.text(`Oluşturma Tarihi: ${PDFHelpers.formatDate(new Date())}`, 230, 10);
+            },
+
+            async prepareTableData() {
+                const rows = Array.from(document.querySelectorAll('#sinavlarTable tbody tr'));
+                const tableData = [];
+
+                for (const row of rows) {
+                    const cells = Array.from(row.cells);
+                    const sinavId = row.querySelector('button[onclick^="getDerslikler"]')
+                        ?.getAttribute('onclick')
+                        ?.match(/\d+/)?.[0];
+
+                    const derslikBilgisi = await PDFHelpers.getDerslikBilgileri(sinavId);
+
+                    tableData.push([
+                        cells[0].textContent.trim(),
+                        cells[1].textContent.trim(),
+                        cells[2].textContent.trim(),
+                        `${cells[3].textContent.trim()} - ${cells[4].textContent.trim()}`,
+                        derslikBilgisi
+                    ]);
+                }
+
+                return tableData;
+            },
+
+            generateTable(doc, tableData) {
+                const { columnWidths } = PDF_CONFIG.styles.table;
+
+                doc.autoTable({
+                    startY: 20,
+                    head: [[
+                        'Ders Adı',
+                        'Öğretim Üyesi',
+                        'Sınav Tarihi',
+                        'Saat Aralığı',
+                        'Derslik ve Gözetmen'
+                    ]],
+                    body: tableData,
+                    styles: {
+                        font: 'helvetica',
+                        fontSize: 8,
+                        cellPadding: 3,
+                        lineColor: [200, 200, 200],
+                        lineWidth: 0.1,
+                    },
+                    headStyles: {
+                        fillColor: [51, 122, 183],
+                        textColor: [255, 255, 255],
+                        halign: 'center',
+                        valign: 'middle',
+                        fontSize: 9,
+                        fontStyle: 'bold'
+                    },
+                    columnStyles: {
+                        0: { cellWidth: columnWidths.dersAdi },
+                        1: { cellWidth: columnWidths.ogretimUyesi },
+                        2: { cellWidth: columnWidths.sinavTarihi },
+                        3: { cellWidth: columnWidths.saatAraligi },
+                        4: { cellWidth: columnWidths.derslikBilgisi, whiteSpace: 'pre-line' }
+                    },
+                    alternateRowStyles: { fillColor: [245, 245, 245] },
+                    margin: { top: 20, right: 15, bottom: 15, left: 15 },
+                    didDrawPage: (data) => this.addPageNumber(doc),
+                    didParseCell: (data) => this.adjustCellHeight(data)
+                });
+            },
+
+            addPageNumber(doc) {
+                doc.setFontSize(8);
+                doc.setTextColor(70, 70, 70);
+                doc.text(
+                    `Sayfa ${doc.internal.getNumberOfPages()}`,
+                    doc.internal.pageSize.width - 20,
+                    doc.internal.pageSize.height - 10
+                );
+            },
+
+            adjustCellHeight(data) {
+                if (data.column.index === 4) {
+                    const lines = data.cell.text.length;
+                    data.row.height = Math.max(lines * 4, 8);
+                }
+            }
+        };
+
+        async function exportToPDF() {
+            try {
+                // Font tanımlaması
+                pdfMake.fonts = {
+                    Roboto: {
+                        normal: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf',
+                        bold: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf',
+                        italics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Italic.ttf',
+                        bolditalics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-MediumItalic.ttf'
+                    }
+                };
+
+                // Sınav verilerini topla ve grupla
+                const sinavMap = new Map(); // Sınavları ID'lerine göre gruplamak için
+                const rows = Array.from(document.querySelectorAll('#sinavlarTable tbody tr'));
+
+                // Önce tüm sınavları topla
+                for (const row of rows) {
+                    const cells = Array.from(row.cells);
+                    const sinavId = row.querySelector('button[onclick^="getDerslikler"]')
+                        ?.getAttribute('onclick')
+                        ?.match(/\d+/)?.[0];
+
+                    if (sinavId && !sinavMap.has(sinavId)) {
+                        // Derslik bilgilerini al
+                        const response = await fetch(`/SinavDetay/GetSinavDersliklerDetay/${sinavId}`);
+                        const result = await response.json();
+
+                        const derslikBilgisi = result.success && result.data ?
+                            result.data.map(d => `${d.derslikAdi}\n(${d.gozetmenAdi})`).join('\n\n') :
+                            'Bilgi Yok';
+
+                        // Sınavı haritaya ekle
+                        sinavMap.set(sinavId, {
+                            dersAdi: cells[0].textContent.trim(),
+                            ogretimUyesi: cells[1].textContent.trim(),
+                            sinavTarihi: cells[2].textContent.trim(),
+                            saatAraligi: `${cells[3].textContent.trim()} - ${cells[4].textContent.trim()}`,
+                            derslikBilgisi: derslikBilgisi
+                        });
+                    }
+                }
+
+                // Tabloyu oluştur
+                const tableData = Array.from(sinavMap.values()).map(sinav => [
+                    { text: sinav.dersAdi },
+                    { text: sinav.ogretimUyesi },
+                    { text: sinav.sinavTarihi },
+                    { text: sinav.saatAraligi },
+                    { text: sinav.derslikBilgisi }
+                ]);
+
+                const headerRow = [
+                    { text: 'Ders Adı', style: 'tableHeader' },
+                    { text: 'Öğretim Üyesi', style: 'tableHeader' },
+                    { text: 'Sınav Tarihi', style: 'tableHeader' },
+                    { text: 'Saat Aralığı', style: 'tableHeader' },
+                    { text: 'Derslik ve Gözetmen', style: 'tableHeader' }
+                ];
+
+                const docDefinition = {
+                    pageOrientation: 'landscape',
+                    pageMargins: [20, 60, 20, 40],
+                    header: {
+                        columns: [
+                            {
+                                text: 'SINAV TAKVİMİ',
+                                alignment: 'left',
+                                margin: [20, 20, 0, 0],
+                                fontSize: 18,
+                                bold: true
+                            },
+                            {
+                                text: `Oluşturma Tarihi: ${new Date().toLocaleDateString('tr-TR')}`,
+                                alignment: 'right',
+                                margin: [0, 25, 20, 0],
+                                fontSize: 10
+                            }
+                        ]
+                    },
+                    footer: function(currentPage, pageCount) {
+                        return {
+                            text: `Sayfa ${currentPage} / ${pageCount}`,
+                            alignment: 'right',
+                            margin: [0, 0, 20, 20]
+                        };
+                    },
+                    content: [
+                        {
+                            table: {
+                                headerRows: 1,
+                                widths: ['*', '*', 'auto', 'auto', '*'],
+                                body: [headerRow, ...tableData]
+                            }
+                        }
+                    ],
+                    styles: {
+                        tableHeader: {
+                            bold: true,
+                            fontSize: 11,
+                            color: 'white',
+                            fillColor: '#337ab7',
+                            alignment: 'center'
+                        }
+                    },
+                    defaultStyle: {
+                        font: 'Roboto',
+                        fontSize: 10
+                    }
+                };
+
+                // PDF oluştur ve indir
+                const fileName = `Sinav_Takvimi_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '-')}.pdf`;
+                pdfMake.createPdf(docDefinition).download(fileName);
+
+            } catch (error) {
+                console.error('PDF oluşturma hatası:', error);
+                alert('PDF oluşturulurken bir hata oluştu.');
+            }
+        }
+
+        function yeniDerslikEkle() {
+            const container = document.getElementById('dersliklerContainer');
+            const yeniSatir = document.querySelector('.derslik-row').cloneNode(true);
+            yeniSatir.querySelectorAll('select').forEach(select => select.value = '');
+            container.appendChild(yeniSatir);
+        }
+
+        function sinavKaydet() {
+            const derslikler = [];
+            document.querySelectorAll('.derslik-row').forEach(row => {
+                const derslikId = row.querySelector('.derslik-select').value;
+                const gozetmenId = row.querySelector('.gozetmen-select').value;
+                if (derslikId) {
+                    derslikler.push({
+                        derslikId: parseInt(derslikId),
+                        gozetmenId: gozetmenId ? parseInt(gozetmenId) : null
+                    });
+                }
+            });
+
+            const data = {
+                dbapId: parseInt(document.getElementById('dbapId').value),
+                sinavTarihi: document.getElementById('sinavTarihi').value,
+                sinavBaslangicSaati: document.getElementById('baslangicSaati').value,
+                sinavBitisSaati: document.getElementById('bitisSaati').value,
+                derslikler: derslikler
+            };
+
+            fetch('/SinavDetay/Add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Sınav başarıyla kaydedildi');
+                    location.reload();
+                } else {
+                    alert('Hata: ' + result.message);
+                }
+            })
+            .catch(error => {
+                alert('Bir hata oluştu: ' + error);
+            });
+        }
+
+        function getDerslikler(sinavId) {
+            fetch(`/SinavDetay/GetSinavDerslikler/${sinavId}`)
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        let message = 'Derslikler:\n';
+                        result.data.forEach(derslik => {
+                            message += `${derslik.derslikAdi}\n`;
+                        });
+                        alert(message);
+                    } else {
+                        alert('Hata: ' + result.message);
+                    }
+                });
+        }
+
+        function duzenle(id) {
+            // Düzenleme fonksiyonu implementasyonu
+            alert('Düzenleme özelliği yapım aşamasında');
+        }
+
+        function sil(id) {
+            if (confirm('Bu sınavı silmek istediğinizden emin misiniz?')) {
+                fetch('/SinavDetay/Delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(id)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert('Sınav başarıyla silindi');
+                        location.reload();
+                    } else {
+                        alert('Hata: ' + result.message);
+                    }
+                });
+            }
+        }
+    </script>
+}

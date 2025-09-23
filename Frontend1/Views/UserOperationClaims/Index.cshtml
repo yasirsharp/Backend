@@ -1,0 +1,159 @@
+@model IEnumerable<Core.Entities.Concrete.UserOperationClaim>
+
+@{
+    ViewData["Title"] = "Kullanıcı Yetki Yönetimi";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Kullanıcı Yetki Listesi</h3>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#userOperationClaimModal">
+                            Yeni Yetki Ekle
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <table id="userOperationClaimTable" class="table table-bordered table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Kullanıcı ID</th>
+                                <th>Operasyon ID</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td>@item.Id</td>
+                                    <td>@item.UserId</td>
+                                    <td>@item.OperationClaimId</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info edit-userOperationClaim" data-id="@item.Id">Düzenle</button>
+                                        <button class="btn btn-sm btn-danger delete-userOperationClaim" data-id="@item.Id">Sil</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- UserOperationClaim Modal -->
+<div class="modal fade" id="userOperationClaimModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Kullanıcı Yetki</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="userOperationClaimForm">
+                    <input type="hidden" id="userOperationClaimId" />
+                    <div class="form-group">
+                        <label for="userId">Kullanıcı ID</label>
+                        <input type="number" class="form-control" id="userId" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="operationClaimId">Operasyon ID</label>
+                        <input type="number" class="form-control" id="operationClaimId" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" id="saveUserOperationClaim">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // DataTable initialization
+            $('#userOperationClaimTable').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Turkish.json"
+                }
+            });
+
+            // Yeni kullanıcı yetki ekleme
+            $('#saveUserOperationClaim').click(function () {
+                var userOperationClaim = {
+                    Id: $('#userOperationClaimId').val(),
+                    UserId: parseInt($('#userId').val()),
+                    OperationClaimId: parseInt($('#operationClaimId').val())
+                };
+
+                var url = userOperationClaim.Id ? '/UserOperationClaims/Update' : '/UserOperationClaims/Add';
+                var method = userOperationClaim.Id ? 'PUT' : 'POST';
+
+                $.ajax({
+                    url: url,
+                    type: method,
+                    contentType: 'application/json',
+                    data: JSON.stringify(userOperationClaim),
+                    success: function (response) {
+                        if (response.success) {
+                            location.reload();
+                        } else {
+                            alert('Hata: ' + response.message);
+                        }
+                    },
+                    error: function (xhr) {
+                        alert('Bir hata oluştu: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            // Kullanıcı yetki düzenleme
+            $('.edit-userOperationClaim').click(function () {
+                var id = $(this).data('id');
+                $.get('/UserOperationClaims/GetById/' + id, function (userOperationClaim) {
+                    $('#userOperationClaimId').val(userOperationClaim.id);
+                    $('#userId').val(userOperationClaim.userId);
+                    $('#operationClaimId').val(userOperationClaim.operationClaimId);
+                    $('#userOperationClaimModal').modal('show');
+                });
+            });
+
+            // Kullanıcı yetki silme
+            $('.delete-userOperationClaim').click(function () {
+                if (confirm('Bu kullanıcı yetkisini silmek istediğinizden emin misiniz?')) {
+                    var id = $(this).data('id');
+                    $.ajax({
+                        url: '/UserOperationClaims/Delete/' + id,
+                        type: 'DELETE',
+                        success: function (response) {
+                            if (response.success) {
+                                location.reload();
+                            } else {
+                                alert('Hata: ' + response.message);
+                            }
+                        },
+                        error: function (xhr) {
+                            alert('Bir hata oluştu: ' + xhr.responseText);
+                        }
+                    });
+                }
+            });
+
+            // Modal kapandığında formu temizle
+            $('#userOperationClaimModal').on('hidden.bs.modal', function () {
+                $('#userOperationClaimForm')[0].reset();
+                $('#userOperationClaimId').val('');
+            });
+        });
+    </script>
+} 

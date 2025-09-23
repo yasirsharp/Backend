@@ -1,0 +1,489 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Düzce Üniversitesi</title>
+    
+    <!-- CSS Referansları -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Frontend1.styles.css" asp-append-version="true" />
+    
+    <!-- Özel CSS dosyaları -->
+    <link rel="stylesheet" href="~/css/common.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/layout.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/management.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/calendar.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile.css" asp-append-version="true" />
+    
+    @RenderSection("Styles", required: false)
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-calendar-check"></i>
+                Sınav Yönetimi
+            </a>
+            <ul class="nav flex-column mt-3">
+                <li class="nav-item">
+                    <a class="nav-link @(ViewContext.RouteData.Values["Controller"].ToString() == "Home" && ViewContext.RouteData.Values["Action"].ToString() == "Index" ? "active" : "")"
+                       asp-controller="Home" asp-action="Index">
+                        <i class="bi bi-speedometer2"></i>
+                        Dashboard
+                    </a>
+                </li>
+                
+                <!-- Yönetim Menüsü -->
+                <li class="nav-item">
+                    <a class="nav-link collapsed" href="#yonetimSubmenu" data-bs-toggle="collapse" role="button" 
+                       aria-expanded="false" aria-controls="yonetimSubmenu">
+                        <i class="bi bi-gear"></i>
+                        Yönetim
+                        <i class="bi bi-chevron-down arrow ms-auto"></i>
+                    </a>
+                    <div class="collapse submenu" id="yonetimSubmenu">
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link @(ViewContext.RouteData.Values["Controller"].ToString() == "Bolum" ? "active" : "")"
+                                   asp-controller="Bolum" asp-action="BolumYonetim">
+                                    <i class="bi bi-building"></i>
+                                    Bölüm Yönetimi
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(ViewContext.RouteData.Values["Controller"].ToString() == "Ders" ? "active" : "")"
+                                   asp-controller="Ders" asp-action="DersYonetim">
+                                    <i class="bi bi-book"></i>
+                                    Ders Yönetimi
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(ViewContext.RouteData.Values["Controller"].ToString() == "AkademikPersonel" ? "active" : "")"
+                                   asp-controller="AkademikPersonel" asp-action="AkademikPersonelYonetim">
+                                    <i class="bi bi-person"></i>
+                                    Akademik Personel
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(ViewContext.RouteData.Values["Controller"].ToString() == "Derslik" ? "active" : "")"
+                                   asp-controller="Derslik" asp-action="DerslikYonetim">
+                                    <i class="bi bi-door-open"></i>
+                                    Derslik Yönetimi
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(ViewContext.RouteData.Values["Controller"].ToString() == "BolumDersAkademikPersonel" ? "active" : "")"
+                                   asp-controller="BolumDersAkademikPersonel" asp-action="index">
+                                    <i class="bi bi-link-45deg"></i>
+                                    Eşleşme Yönetimi
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+
+                <!-- Takvim Menüsü -->
+                <li class="nav-item">
+                    <a class="nav-link collapsed" href="#takvimSubmenu" data-bs-toggle="collapse" role="button" 
+                       aria-expanded="false" aria-controls="takvimSubmenu">
+                        <i class="bi bi-calendar3"></i>
+                        Takvim
+                        <i class="bi bi-chevron-down arrow ms-auto"></i>
+                    </a>
+                    <div class="collapse submenu" id="takvimSubmenu">
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link @(ViewContext.RouteData.Values["Controller"].ToString() == "SinavDetay" || ViewContext.RouteData.Values["Controller"].ToString() == "GorevliSinavYonetim" ? "active" : "")"
+                                   asp-controller="GorevliSinavYonetim" asp-action="Index">
+                                    <i class="bi bi-calendar-check"></i>
+                                    Sınav Ekle/Sil Takvimi
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+            </ul>
+            
+            <!-- Footer -->
+            <div class="sidebar-footer">
+                <div class="footer-content">
+                    Developed by <a href="https://github.com/yasirsharp" target="_blank" class="footer-link">~yasirsharp</a>
+                    <br>
+                    <a href="https://github.com/yasirsharp/DuzceUniversiteSinavTakvimi" target="_blank" class="footer-link">GitHub Repository</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Page Content -->
+        <div class="content" id="content">
+            <nav class="navbar top-navbar">
+                <div class="container-fluid px-4">
+                    <div class="d-flex align-items-center">
+                        <button type="button" id="sidebarCollapse" class="menu-toggle">
+                            <i class="bi bi-list"></i>
+                        </button>
+                        <span class="h4 mb-0 ms-3">@ViewData["Title"]</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="user-dropdown">
+                            <button class="btn btn-link text-dark dropdown-toggle" onclick="toggleUserMenu()">
+                                <i class="bi bi-person-circle me-1"></i>
+                                <span id="userName">Kullanıcı</span>
+                            </button>
+                            <div class="user-dropdown-content" id="userDropdown">
+                                <a href="/Profile" class="user-dropdown-item">
+                                    <i class="bi bi-person"></i>
+                                    Profil
+                                </a>
+                                <a href="/management/user" class="user-dropdown-item" id="userManagementLink" style="display: none;">
+                                    <i class="bi bi-gear"></i>
+                                    Kullanıcı Yönetimi
+                                </a>
+                                <a href="/management/settings" class="user-dropdown-item">
+                                    <i class="bi bi-gear"></i>
+                                    Ayarlar
+                                </a>
+                                <div class="user-dropdown-divider"></div>
+                                <a href="#" class="user-dropdown-item logout-btn" onclick="logout(event)">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                    Çıkış
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="container-fluid px-4 py-3">
+                @RenderBody()
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Referansları -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const content = document.getElementById('content');
+            const sidebarCollapse = document.getElementById('sidebarCollapse');
+            const overlay = document.getElementById('overlay');
+
+            function toggleSidebar() {
+                sidebar.classList.toggle('collapsed');
+                content.classList.toggle('expanded');
+                if (!sidebar.classList.contains('collapsed')) {
+                    overlay.style.display = 'block';
+                } else {
+                    overlay.style.display = 'none';
+                }
+            }
+
+            sidebarCollapse.addEventListener('click', toggleSidebar);
+            overlay.addEventListener('click', toggleSidebar);
+
+            // Mobil görünümde otomatik kapat
+            function checkMobile() {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.add('collapsed');
+                    content.classList.add('expanded');
+                    overlay.style.display = 'none';
+                }
+            }
+
+            // İlk yüklemede kontrol et
+            checkMobile();
+
+            // Ekran boyutu değiştiğinde kontrol et
+            window.addEventListener('resize', checkMobile);
+
+            // Alt menü aktif olduğunda üst menüyü de aktif et
+            const activeSubmenuLink = document.querySelector('.submenu .nav-link.active');
+            if (activeSubmenuLink) {
+                const parentCollapse = activeSubmenuLink.closest('.collapse');
+                if (parentCollapse) {
+                    parentCollapse.classList.add('show');
+                    const parentNavLink = parentCollapse.previousElementSibling;
+                    if (parentNavLink) {
+                        parentNavLink.classList.remove('collapsed');
+                        parentNavLink.setAttribute('aria-expanded', 'true');
+                    }
+                }
+            }
+
+            // Mobilde menü dışı tıklamada menüyü kapat
+            document.addEventListener('click', function(event) {
+                if (window.innerWidth <= 768 && 
+                    !sidebar.contains(event.target) && 
+                    !sidebarCollapse.contains(event.target) && 
+                    !sidebar.classList.contains('collapsed')) {
+                    toggleSidebar();
+                }
+            });
+        });
+
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('show');
+        }
+
+        // Menü dışına tıklandığında menüyü kapat
+        window.onclick = function(event) {
+            if (!event.target.matches('.dropdown-toggle')) {
+                var dropdowns = document.getElementsByClassName('user-dropdown-content');
+                for (var i = 0; i < dropdowns.length; i++) {
+                    var openDropdown = dropdowns[i];
+                    if (openDropdown.classList.contains('show')) {
+                        openDropdown.classList.remove('show');
+                    }
+                }
+            }
+        }
+
+        // Çıkış fonksiyonu
+        async function logout(event) {
+            event.preventDefault();
+            
+            try {
+                const response = await fetch('/Auth/Logout', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    // Başarılı çıkış
+                    Swal.fire({
+                        title: 'Başarılı!',
+                        text: 'Çıkış yapıldı, yönlendiriliyorsunuz...',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.href = '/Auth/Login';
+                    });
+                } else {
+                    // Hata durumu
+                    const errorData = await response.text();
+                    Swal.fire({
+                        title: 'Hata!',
+                        text: errorData || 'Çıkış yapılırken bir hata oluştu.',
+                        icon: 'error'
+                    });
+                }
+            } catch (error) {
+                console.error('Çıkış hatası:', error);
+                Swal.fire({
+                    title: 'Hata!',
+                    text: 'Bir hata oluştu.',
+                    icon: 'error'
+                });
+            }
+        }
+
+        // UserInfo cookie'sinden bilgileri al ve göster
+        function getCookie(name) {
+            const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
+                const [key, value] = cookie.split('=');
+                acc[key] = value ? decodeURIComponent(value) : '';
+                return acc;
+            }, {});
+
+            return cookies[name] || null;
+        }
+
+        function getUserInfo() {
+            const userClaims = getCookie('User-Claims');
+            const fullName = getCookie('UserInfo-FullName') || 'Kullanıcı';
+
+            if (!userClaims) {
+                console.warn("User-Claims çerezi bulunamadı!");
+                return fullName;
+            }
+
+            const claimsArray = userClaims.split(';').filter(claim => claim.trim() !== "");
+            const roles = claimsArray.map(claim => {
+                let parts = claim.split(':');
+                return parts.length > 1 ? parts[1] : '';
+            }).filter(role => role !== "").join(', ');
+
+            // Kullanıcı yönetimi butonunu kontrol et
+            const userManagementLink = document.getElementById('userManagementLink');
+            if (userManagementLink) {
+                userManagementLink.style.display = roles.includes('super.admin') ? 'flex' : 'none';
+            }
+
+            return `${fullName} (${roles})`;
+        }
+
+        // Sayfa yüklendiğinde kullanıcı bilgilerini güncelle
+        document.addEventListener('DOMContentLoaded', function() {
+            const userNameElement = document.getElementById('userName');
+            if (userNameElement) {
+                userNameElement.textContent = getUserInfo();
+            }
+        });
+    </script>
+
+    <!-- Footer başlangıç -->
+    @* <footer class="footer">
+        <div class="footer-content">
+            Developed by <a href="https://github.com/yasirsharp" target="_blank" class="footer-link">~yasirsharp</a>
+            <br>
+            <a href="https://github.com/yasirsharp/DuzceUniversiteSinavTakvimi" target="_blank" class="footer-link">GitHub Repository</a>
+        </div>
+    </footer> *@
+    <!-- Footer bitiş -->
+</body>
+</html>
+
+<!--<style>
+.footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    padding: 10px 0;
+    text-align: center;
+    z-index: 1000;
+}
+
+.footer-content {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.footer-link {
+    color: #007bff;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.footer-link:hover {
+    color: #0056b3;
+    text-decoration: none;
+}
+
+/* Ana içerik için padding ekliyoruz ki footer içeriği kapatmasın */
+.main-content {
+    padding-bottom: 60px;
+}
+
+.user-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.user-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    min-width: 200px;
+    background: white;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 8px 0;
+    z-index: 1000;
+    transform-origin: top right;
+    animation: dropdownAnimation 0.3s ease;
+}
+
+@@keyframes dropdownAnimation {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.user-dropdown-content.show {
+    display: block;
+}
+
+.user-dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    color: #333;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.user-dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #007bff;
+}
+
+.user-dropdown-item i {
+    margin-right: 10px;
+    width: 20px;
+    text-align: center;
+}
+
+.user-dropdown-divider {
+    height: 1px;
+    background-color: #e9ecef;
+    margin: 8px 0;
+}
+
+.logout-btn {
+    color: #dc3545 !important;
+}
+
+.logout-btn:hover {
+    background-color: #fff5f5 !important;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    text-align: center;
+}
+
+.sidebar-footer .footer-content {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.sidebar-footer .footer-link {
+    color: #007bff;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.sidebar-footer .footer-link:hover {
+    color: #0056b3;
+    text-decoration: none;
+}
+
+/* Ana içerik için padding ekliyoruz */
+.content {
+    padding-bottom: 1rem;
+}
+</style>
+-->

@@ -1,0 +1,106 @@
+/* Takvim container */
+.calendar-container {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+/* FullCalendar özelleştirmeleri */
+.fc {
+    max-width: 100%;
+    background: #fff;
+}
+
+.fc .fc-toolbar.fc-header-toolbar {
+    margin-bottom: 1.5em;
+    padding: 10px;
+}
+
+.fc .fc-toolbar-title {
+    font-size: 1.5em;
+    color: #343a40;
+}
+
+.fc .fc-button-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.fc .fc-button-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+.fc .fc-button-primary:disabled {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Event stilleri */
+.fc-event {
+    border-radius: 3px;
+    padding: 3px;
+    margin: 2px 0;
+    border: none;
+    cursor: pointer;
+}
+
+.fc-event-title {
+    font-weight: 500;
+    font-size: 0.9em;
+}
+
+.fc-event-time {
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+/* Sürüklenebilir ders listesi */
+.draggable-events {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.draggable-events .event-item {
+    padding: 10px;
+    margin: 5px 0;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: move;
+    transition: all 0.3s;
+}
+
+.draggable-events .event-item:hover {
+    background: #e9ecef;
+}
+
+/* Filtre bölümü */
+.calendar-filters {
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.calendar-filters select {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+/* Export butonu */
+.export-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+} 

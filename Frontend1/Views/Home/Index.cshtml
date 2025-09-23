@@ -1,0 +1,61 @@
+﻿@{
+    ViewData["Title"] = "Anasayfa";
+}
+<h1>Anasayfa</h1>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Hoş Geldiniz</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <strong id="kullaniciAdi">Kullanıcı</strong>, sisteme başarıyla giriş yaptınız.
+                    </div>
+                    <p>Düzce Üniversitesi Sınav Takvimi sistemini kullanarak sınavlarınızı yönetebilirsiniz.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Kullanıcı Bilgileri</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item"><strong>Ad Soyad:</strong> <span id="adSoyad"></span></li>
+                        <li class="list-group-item"><strong>E-posta:</strong> <span id="email"></span></li>
+                        <li class="list-group-item"><strong>Durum:</strong> <span id="durum"></span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // localStorage'dan kullanıcı bilgilerini al
+        const userFullName = localStorage.getItem('user_fullname') || 'Kullanıcı';
+        const userEmail = localStorage.getItem('user_email') || 'Email bilgisi alınamadı';
+        const userStatus = localStorage.getItem('user_status') || 'Durum bilgisi alınamadı';
+        
+        // Bilgileri sayfaya yerleştir
+        document.getElementById('kullaniciAdi').textContent = userFullName;
+        document.getElementById('adSoyad').textContent = userFullName;
+        document.getElementById('email').textContent = userEmail;
+        document.getElementById('durum').textContent = userStatus === 'true' ? 'Aktif' : 'Pasif';
+        
+        // Sayfa başlığında kullanıcı adını göster
+        document.title = `${userFullName} - Anasayfa`;
+        
+        // Kullanıcı bilgilerini console'da göster (test amaçlı)
+        console.log('Kullanıcı bilgileri yüklendi:', {
+            fullName: userFullName,
+            email: userEmail,
+            status: userStatus
+        });
+    });
+</script>

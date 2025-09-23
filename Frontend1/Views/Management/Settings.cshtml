@@ -1,0 +1,110 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@model Core.Entities.Concrete.User
+@{
+    ViewData["Title"] = "Ayarlar";
+}
+
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Kullanıcı Bilgileri</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <form id="userInfoForm">
+                        <div class="mb-3">
+                            <label for="userId" class="form-label">Kullanıcı ID</label>
+                            <input type="text" class="form-control" id="userId" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userName" class="form-label">Ad Soyad</label>
+                            <input type="text" class="form-control" id="userName" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">E-posta</label>
+                            <input type="email" class="form-control" id="email" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Durum</label>
+                            <input type="text" class="form-control" id="status" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="roles" class="form-label">Yetkiler</label>
+                            <input type="text" class="form-control" id="roles" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="rawClaims" class="form-label">Ham Yetki Bilgisi</label>
+                            <input type="text" class="form-control" id="rawClaims" readonly>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Cookie'den kullanıcı bilgilerini al
+            function getUserInfoFromCookie() {
+                const userInfoCookie = getCookie('UserInfo');
+                if (userInfoCookie) {
+                    try {
+                        const decodedCookie = decodeURIComponent(userInfoCookie);
+                        const userInfo = JSON.parse(decodedCookie);
+                        
+                        // Claims string'ini parse et
+                        const claimsArray = userInfo.claims ? userInfo.claims.split(';').filter(claim => claim) : [];
+                        const parsedClaims = claimsArray.map(claim => {
+                            const [, roleName] = claim.split(':');
+                            return roleName;
+                        });
+                        
+                        return {
+                            ...userInfo,
+                            parsedClaims
+                        };
+                    } catch (e) {
+                        console.error('Cookie parse hatası:', e);
+                        return null;
+                    }
+                }
+                return null;
+            }
+
+            // Cookie okuma fonksiyonu
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return null;
+            }
+
+            // Kullanıcı bilgilerini forma doldur
+            function fillUserInfo() {
+                const userInfo = getUserInfoFromCookie();
+                if (userInfo) {
+                    $('#userId').val(userInfo.id || '');
+                    $('#userName').val(userInfo.fullName || '');
+                    $('#email').val(userInfo.email || '');
+                    $('#status').val(userInfo.status ? 'Aktif' : 'Pasif');
+                    $('#roles').val(userInfo.parsedClaims ? userInfo.parsedClaims.join(', ') : '');
+                    $('#rawClaims').val(userInfo.claims || '');
+                } else {
+                    Swal.fire({
+                        title: 'Hata!',
+                        text: 'Kullanıcı bilgileri bulunamadı.',
+                        icon: 'error'
+                    });
+                }
+            }
+
+            // Sayfa yüklendiğinde bilgileri doldur
+            fillUserInfo();
+        });
+    </script>
+}

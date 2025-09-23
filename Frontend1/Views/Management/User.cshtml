@@ -1,0 +1,153 @@
+﻿@using Core.Entities.Concrete
+@using Core.Utilities.Results
+@{
+    ViewData["Title"] = "Kullanıcı Yönetim Sayfası";
+
+    IDataResult<List<User>> users = ViewData["Users"] as IDataResult<List<User>>;
+    IDataResult<List<OperationClaim>> operationClaims = ViewData["OperationClaims"] as IDataResult<List<OperationClaim>>;
+    IDataResult<List<UserOperationClaim>> userOperationClaims = ViewData["UserOperationClaims"] as IDataResult<List<UserOperationClaim>>;
+}
+
+@* Anti-forgery token ekle *@
+@Html.AntiForgeryToken()
+
+<div class="container-fluid">
+    <!-- Operation Claims Yönetimi -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Yetki Listesi</h5>
+            <button type="button" class="btn btn-primary btn-sm" onclick="showAddOperationClaimModal()">
+                <i class="bi bi-plus"></i> Yeni Yetki Ekle
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Yetki Adı</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody id="operationClaimsTable">
+                        <!-- Veriler JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Operation Claims Yönetimi -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Kullanıcı Yetki Listesi</h5>
+            <button type="button" class="btn btn-primary btn-sm" onclick="showAddUserOperationClaimModal()">
+                <i class="bi bi-plus"></i> Yeni Eşleştirme
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Kullanıcı</th>
+                            <th>Yetki</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userOperationClaimsTable">
+                        <!-- Veriler JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kullanıcı Yönetimi -->
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Kullanıcı Listesi</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Kullanıcı Adı</th>
+                            <th>Ad Soyad</th>
+                            <th>E-Posta</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <!-- Veriler JavaScript ile doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Operation Claim Ekleme Modalı -->
+<div class="modal fade" id="addOperationClaimModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Yeni Yetki Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addOperationClaimForm">
+                    <div class="mb-3">
+                        <label for="operationClaimName" class="form-label">Yetki Adı</label>
+                        <input type="text" class="form-control" id="operationClaimName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" onclick="addOperationClaim()">Ekle</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Operation Claim Ekleme Modalı -->
+<div class="modal fade" id="addUserOperationClaimModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Yeni Kullanıcı Yetki Eşleştirmesi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserOperationClaimForm">
+                    <div class="mb-3">
+                        <label for="userId" class="form-label">Kullanıcı</label>
+                        <select class="form-select" id="userId" required>
+                            <!-- Kullanıcılar JavaScript ile doldurulacak -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="operationClaimId" class="form-label">Yetki</label>
+                        <select class="form-select" id="operationClaimId" required>
+                            <!-- Yetkiler JavaScript ile doldurulacak -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" onclick="addUserOperationClaim()">Ekle</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Ayrı JS Dosyasını Dahil Et -->
+    <script src="~/js/userManagement.js"></script>
+}
