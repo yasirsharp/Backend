@@ -1,4 +1,4 @@
-ï»¿using Core.DataAccess;
+using Core.DataAccess;
 using Core.DataAccess.EntityFramework;
 using DataAccess.Abstract;
 using Entity.Concrete;
@@ -22,13 +22,13 @@ namespace DataAccess.Concrete.EntityFramework
                 {
                     try
                     {
-                        // Saat dÃ¶nÃ¼ÅŸÃ¼mleri
+                        // Saat dönüþümleri
                         TimeOnly baslangicSaati = TimeOnly.Parse(sinavKayitDTO.SinavBaslangicSaati);
                         TimeOnly bitisSaati = TimeOnly.Parse(sinavKayitDTO.SinavBitisSaati);
 
                         SinavDetay sinavDetay = new SinavDetay
                         {
-                            DersBolumAkademikPersonelId = sinavKayitDTO.DerBolumAkademikPersonelId,
+                            DersBolumAkademikPersonelId = sinavKayitDTO.DersBolumAkademikPersonelId,
                             SinavTarihi = sinavKayitDTO.SinavTarihi,
                             SinavBaslangicSaati = baslangicSaati,
                             SinavBitisSaati = bitisSaati
@@ -94,11 +94,11 @@ namespace DataAccess.Concrete.EntityFramework
                              from dba in dba_join.DefaultIfEmpty()
                              where s.SinavTarihi.Date == sinavTarihi.Date &&
                                    (
-                                       // Derslik Ã§akÄ±ÅŸma kontrolÃ¼
+                                       // Derslik çakýþma kontrolü
                                        (derslikIdleri.Contains(sd.DerslikId)) ||
-                                       // GÃ¶zetmen Ã§akÄ±ÅŸma kontrolÃ¼
+                                       // Gözetmen çakýþma kontrolü
                                        (gozetmenIdleri.Contains(sd.GozetmenId)) ||
-                                       // Akademik personel Ã§akÄ±ÅŸma kontrolÃ¼
+                                       // Akademik personel çakýþma kontrolü
                                        (akademikPersonelId == dba.AkademikPersonelId)
                                    ) &&
                                    (
@@ -128,6 +128,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -174,6 +175,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -221,6 +223,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -267,6 +270,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -312,6 +316,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  DerslikId = sd.DerslikId,
                                  GozetmenId = sd.GozetmenId,
@@ -356,6 +361,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -396,7 +402,7 @@ namespace DataAccess.Concrete.EntityFramework
                         var sinavDetay = context.SinavDetay.Find(sinavGuncelleDTO.Id);
                         if (sinavDetay != null)
                         {
-                            sinavDetay.DersBolumAkademikPersonelId = sinavGuncelleDTO.DerBolumAkademikPersonelId;
+                            sinavDetay.DersBolumAkademikPersonelId = sinavGuncelleDTO.DersBolumAkademikPersonelId;
                             sinavDetay.SinavTarihi = sinavGuncelleDTO.SinavTarihi;
                             sinavDetay.SinavBaslangicSaati = sinavGuncelleDTO.SinavBaslangicSaati;
                             sinavDetay.SinavBitisSaati = sinavGuncelleDTO.SinavBitisSaati;
@@ -444,6 +450,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -490,6 +497,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -536,6 +544,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -580,6 +589,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -622,6 +632,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -665,6 +676,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
@@ -708,6 +720,7 @@ namespace DataAccess.Concrete.EntityFramework
                              {
                                  Id = s.Id,
                                  DersAd = d.Ad,
+                                 BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,

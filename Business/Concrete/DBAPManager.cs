@@ -32,11 +32,13 @@ namespace Business.Concrete
 
         public IResult Delete(DersBolumAkademikPersonel dersBolumAkademikPersonel)
         {
+            // Bu DBAP'ye bağlı sınav var mı kontrol et
             var response = _sinavDetayService.GetByDBAPId(dersBolumAkademikPersonel.Id);
-            if (!response.Success)
+            if (response.Success && response.Data != null && response.Data.Count > 0)
             {
-                return new ErrorResult(response.Message);
+                return new ErrorResult("Bu eşleştirmeye bağlı sınav kayıtları bulunduğu için silinemez.");
             }
+            
             _dbapDal.Delete(dersBolumAkademikPersonel);
             return new SuccessResult(Messages.DBAPDeleted);
         }
@@ -44,7 +46,7 @@ namespace Business.Concrete
         public IDataResult<DersBolumAkademikPersonel> GetById(int dbapId)
         {
             var result = _dbapDal.Get(q=>q.Id==dbapId);
-            if (result != null)
+            if (result == null)
                 return new ErrorDataResult<DersBolumAkademikPersonel>(Messages.SomethingWrong);
 
             return new SuccessDataResult<DersBolumAkademikPersonel>(result);
@@ -90,7 +92,7 @@ namespace Business.Concrete
             {
                 var result = _dbapDal.GetAll(q=>q.BolumId == bolumId);
 
-                if (result != null) return new ErrorDataResult<List<DersBolumAkademikPersonel>>(result, "Veri bulunamadı sınav eklemeyi deneyin");
+                if (result == null) return new ErrorDataResult<List<DersBolumAkademikPersonel>>(result, "Veri bulunamadı sınav eklemeyi deneyin");
 
                 return new SuccessDataResult<List<DersBolumAkademikPersonel>>(result);
             }

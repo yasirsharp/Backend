@@ -7,7 +7,7 @@ namespace Entity.DTOs
     public class SinavGuncelleDTO : IDto
     {
         public int Id { get; set; }
-        public int DerBolumAkademikPersonelId { get; set; }
+        public int DersBolumAkademikPersonelId { get; set; }  // Fixed typo: added 's'
         public DateTime SinavTarihi { get; set; }
         public TimeOnly SinavBaslangicSaati { get; set; }
         public TimeOnly SinavBitisSaati { get; set; }

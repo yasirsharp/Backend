@@ -138,7 +138,7 @@ namespace API.Controllers
         {
             var result = _sinavDetayService.Add(sinavKayitDTO);
             if (result.Success)
-                return Created("", result);
+                return Ok(result); // 200 OK (diğer endpoint'lerle tutarlı)
             return BadRequest(result);
         }
 
@@ -151,10 +151,10 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        [HttpDelete]
-        public IActionResult Delete(SinavDetay sinavDetay)
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
         {
-            var result = _sinavDetayService.Delete(sinavDetay);
+            var result = _sinavDetayService.Delete(new SinavDetay { Id = id });
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

@@ -87,10 +87,14 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        [HttpDelete]
-        public IActionResult Delete(DersBolumAkademikPersonel dersBolumAkademikPersonel)
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
         {
-            var result = _dbapService.Delete(dersBolumAkademikPersonel);
+            var dbap = _dbapService.GetById(id).Data;
+            if (dbap == null)
+                return NotFound(new { Success = false, Message = "DBAP kaydı bulunamadı" });
+
+            var result = _dbapService.Delete(dbap);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

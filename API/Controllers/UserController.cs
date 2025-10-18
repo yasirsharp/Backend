@@ -82,10 +82,14 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        [HttpDelete]
-        public IActionResult Delete(User user)
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
         {
-            var result = _userService.Delete(user);
+            var user = _userService.GetById(id);
+            if (!user.Success || user.Data == null)
+                return NotFound(new { Success = false, Message = "Kullanıcı bulunamadı" });
+
+            var result = _userService.Delete(user.Data);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

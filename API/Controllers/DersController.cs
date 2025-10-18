@@ -52,10 +52,14 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        [HttpDelete]
-        public IActionResult Delete(Ders ders)
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
         {
-            var result = _dersService.Delete(ders);
+            var ders = _dersService.GetById(id);
+            if (!ders.Success)
+                return NotFound(ders);
+            
+            var result = _dersService.Delete(ders.Data);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

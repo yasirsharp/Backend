@@ -10,6 +10,7 @@ namespace Entity.DTOs
         public int Id { get; set; }
         public int DersBolumAkademikPersonelId { get; set; }
         public string DersAd { get; set; }
+        public int BolumId { get; set; }
         public string BolumAd { get; set; }
         public string AkademikPersonelAd { get; set; }
         public string Unvan { get; set; }

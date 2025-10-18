@@ -51,10 +51,14 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        [HttpDelete]
-        public IActionResult Delete(Bolum bolum)
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
         {
-            var result = _bolumService.Delete(bolum);
+            var bolum = _bolumService.GetById(id);
+            if (!bolum.Success)
+                return NotFound(bolum);
+            
+            var result = _bolumService.Delete(bolum.Data);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

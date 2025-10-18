@@ -51,9 +51,13 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        [HttpDelete]
-        public IActionResult Delete(Derslik derslik)
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
         {
+            var derslik = _derslikService.GetById(id).Data;
+            if (derslik == null)
+                return NotFound(new { Success = false, Message = "Derslik bulunamadı" });
+                
             var result = _derslikService.Delete(derslik);
             if (result.Success)
                 return Ok(result);

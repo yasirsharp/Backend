@@ -53,9 +53,13 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        [HttpDelete]
-        public IActionResult Delete(AkademikPersonel akademikPersonel)
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
         {
+            var akademikPersonel = _akademikPersonelService.GetById(id).Data;
+            if (akademikPersonel == null)
+                return NotFound(new { Success = false, Message = "Akademik personel bulunamadı" });
+
             var result = _akademikPersonelService.Delete(akademikPersonel);
             if (result.Success)
                 return Ok(result);

@@ -12,6 +12,7 @@ namespace Entity.DTOs
         public int Id { get; set; }
         public int DersId { get; set; }
         public string DersAd { get; set; }
+        public string DersKodu { get; set; }
         public int BolumId { get; set; }
         public string BolumAd { get; set; }
         public int AkademikPersonelId { get; set; }

@@ -4,7 +4,7 @@ namespace Entity.DTOs
 {
     public class SinavKayitDTO:IDto
     {
-        public int DerBolumAkademikPersonelId { get; set; }
+        public int DersBolumAkademikPersonelId { get; set; }  // Fixed typo: added 's'
         public DateTime SinavTarihi { get; set; }
         public string SinavBaslangicSaati { get; set; }
         public string SinavBitisSaati { get; set; }

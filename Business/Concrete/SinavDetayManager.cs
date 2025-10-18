@@ -126,7 +126,7 @@ namespace Business.Concrete
                 TimeOnly bitisSaati = TimeOnly.Parse(sinavKayitDTO.SinavBitisSaati);
 
                 // Çakışma kontrolü
-                var result = _sinavDetayDal.ExistSinav(derslikIdleri, gozetmenIdleri, sinavKayitDTO.DerBolumAkademikPersonelId,
+                var result = _sinavDetayDal.ExistSinav(derslikIdleri, gozetmenIdleri, sinavKayitDTO.DersBolumAkademikPersonelId,
                                                                       baslangicSaati, bitisSaati, sinavKayitDTO.SinavTarihi);
 
                 if (result!=null)
@@ -188,8 +188,19 @@ namespace Business.Concrete
 
         public IDataResult<List<SinavDetayDTO>> GetByDBAPId(int akademikPersonelId)
         {
-            var result = _sinavDetayDal.GetByDBAPId(akademikPersonelId);
-            return new SuccessDataResult<List<SinavDetayDTO>>(result, $"{result.Count} tane sonuç bulundu.");
+            try
+            {
+                var result = _sinavDetayDal.GetByDBAPId(akademikPersonelId);
+                if (result == null || result.Count == 0)
+                {
+                    return new SuccessDataResult<List<SinavDetayDTO>>(new List<SinavDetayDTO>(), "Bu eşleştirmeye ait sınav kaydı bulunamadı.");
+                }
+                return new SuccessDataResult<List<SinavDetayDTO>>(result, $"{result.Count} tane sonuç bulundu.");
+            }
+            catch (Exception ex)
+            {
+                return new ErrorDataResult<List<SinavDetayDTO>>(new List<SinavDetayDTO>(), $"Hata: {ex.Message}");
+            }
         }
 
         public IDataResult<List<SinavDetayDTO>> GetByDerslikId(int derslikId)
@@ -212,6 +223,20 @@ namespace Business.Concrete
                 if (existingRecord == null)
                 {
                     return new ErrorResult("Güncellenecek sınav kaydı bulunamadı.");
+                }
+
+                // Derslik ve gözetmenleri listeye çevir
+                List<int> derslikIdleri = sinavGuncelleDTO.Derslikler.Select(d => d.DerslikId).ToList();
+                List<int> gozetmenIdleri = sinavGuncelleDTO.Derslikler.Where(d => d.GozetmenId.HasValue).Select(d => d.GozetmenId.Value).ToList();
+
+                // Çakışma kontrolü (kendi ID'si hariç)
+                var conflictingExam = _sinavDetayDal.ExistSinav(derslikIdleri, gozetmenIdleri, sinavGuncelleDTO.DersBolumAkademikPersonelId,
+                                                                sinavGuncelleDTO.SinavBaslangicSaati, sinavGuncelleDTO.SinavBitisSaati, sinavGuncelleDTO.SinavTarihi);
+
+                // Eğer çakışan sınav varsa ve o sınav kendisi değilse hata döndür
+                if (conflictingExam != null && conflictingExam.Id != sinavGuncelleDTO.Id)
+                {
+                    return new ErrorResult("Derslik, gözetmen veya akademik personel için çakışan bir sınav bulunmaktadır. Lütfen kontrol ediniz.");
                 }
 
                 // Güncellemeyi yap
