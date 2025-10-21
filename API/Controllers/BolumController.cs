@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Business.Abstract;
+using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 
 namespace API.Controllers
@@ -19,6 +20,37 @@ namespace API.Controllers
         public IActionResult GetAll()
         {
             var result = _bolumService.GetList();
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Sayfalanmış, sıralanmış ve filtrelenmiş bölüm listesi
+        /// </summary>
+        /// <param name="pageNumber">Sayfa numarası (default: 1)</param>
+        /// <param name="pageSize">Sayfa başına kayıt (default: 10, max: 100)</param>
+        /// <param name="sortBy">Sıralama alanı (Id, Ad, CreatedDate, UpdatedDate)</param>
+        /// <param name="sortOrder">Sıralama yönü (asc, desc)</param>
+        /// <param name="searchTerm">Arama terimi (bölüm adında arar)</param>
+        [HttpGet("paged")]
+        public IActionResult GetPaged(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? sortBy = "Id",
+            [FromQuery] string sortOrder = "asc",
+            [FromQuery] string? searchTerm = null)
+        {
+            var paginationParams = new PaginationParams
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                SortBy = sortBy,
+                SortOrder = sortOrder,
+                SearchTerm = searchTerm
+            };
+
+            var result = _bolumService.GetPagedList(paginationParams);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

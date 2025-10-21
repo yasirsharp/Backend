@@ -70,5 +70,18 @@ namespace Business.Constants
         public static string AuthorizationDenied = "Yetkiniz Yok!!!";
 
         public static string UserUpdated = "Kullanıcı güncellendi.";
+
+        // Notification Messages
+        public static string NotificationAdded = "Bildirim eklendi.";
+        public static string NotificationDeleted = "Bildirim silindi.";
+        public static string NotificationNotFound = "Bildirim bulunamadı.";
+        public static string NotificationMarkedAsRead = "Bildirim okundu olarak işaretlendi.";
+
+        // Announcement Messages
+        public static string AnnouncementAdded = "Duyuru eklendi.";
+        public static string AnnouncementUpdated = "Duyuru güncellendi.";
+        public static string AnnouncementDeleted = "Duyuru silindi.";
+        public static string AnnouncementNotFound = "Duyuru bulunamadı.";
+        public static string AnnouncementMarkedAsRead = "Duyuru okundu olarak işaretlendi.";
     }
 }

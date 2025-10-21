@@ -1,6 +1,7 @@
 ﻿using Business.Abstract;
 using Business.Constants;
 using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
 using Entity.Concrete;
 using System;
@@ -58,6 +59,29 @@ namespace Business.Concrete
         {
             _bolumDal.Update(bolum);
             return new SuccessResult(Messages.BolumUpdated);
+        }
+
+        public IDataResult<PagedResult<Bolum>> GetPagedList(PaginationParams paginationParams)
+        {
+            // Arama terimi varsa filtrele
+            if (!string.IsNullOrWhiteSpace(paginationParams.SearchTerm))
+            {
+                var pagedResult = _bolumDal.GetPaged(
+                    paginationParams,
+                    b => b.Ad.Contains(paginationParams.SearchTerm)
+                );
+                return new SuccessDataResult<PagedResult<Bolum>>(
+                    pagedResult,
+                    $"{pagedResult.TotalCount} bölüm bulundu."
+                );
+            }
+
+            // Arama terimi yoksa hepsini getir
+            var result = _bolumDal.GetPaged(paginationParams);
+            return new SuccessDataResult<PagedResult<Bolum>>(
+                result,
+                $"{result.TotalCount} bölüm bulundu."
+            );
         }
     }
 }

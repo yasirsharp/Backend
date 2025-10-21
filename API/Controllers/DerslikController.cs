@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Business.Abstract;
+using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
+using Entity.DTOs;
 
 namespace API.Controllers
 {
@@ -24,6 +26,41 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
+        /// <summary>
+        /// Sayfalanmış, sıralanmış ve filtrelenmiş derslik listesi
+        /// </summary>
+        [HttpGet("paged")]
+        public IActionResult GetPaged(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? sortBy = "Id",
+            [FromQuery] string sortOrder = "asc",
+            [FromQuery] string? searchTerm = null)
+        {
+            var paginationParams = new PaginationParams
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                SortBy = sortBy,
+                SortOrder = sortOrder,
+                SearchTerm = searchTerm
+            };
+
+            var result = _derslikService.GetPagedList(paginationParams);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        [HttpGet("with-bolumler")]
+        public IActionResult GetAllWithBolumler()
+        {
+            var result = _derslikService.GetAllWithBolumler();
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
@@ -42,10 +79,28 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
+        [HttpPost("with-bolumler")]
+        public IActionResult AddWithBolumler([FromBody] DerslikEkleDTO derslikEkleDto)
+        {
+            var result = _derslikService.AddDerslikWithBolumler(derslikEkleDto);
+            if (result.Success)
+                return Created("", result);
+            return BadRequest(result);
+        }
+
         [HttpPut]
         public IActionResult Update(Derslik derslik)
         {
             var result = _derslikService.Update(derslik);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        [HttpPut("with-bolumler")]
+        public IActionResult UpdateWithBolumler([FromBody] DerslikGuncelleDTO derslikGuncelleDto)
+        {
+            var result = _derslikService.UpdateDerslikWithBolumler(derslikGuncelleDto);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

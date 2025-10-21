@@ -1,6 +1,9 @@
 ﻿using Business.Abstract;
 using Business.Constants;
+using Business.ValidationRules.FluentValidation;
+using Core.Aspects.Autofac.Validation;
 using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
 using DataAccess.Concrete.EntityFramework;
 using Entity.Concrete;
@@ -61,12 +64,14 @@ namespace Business.Concrete
             return new SuccessResult(Messages.DersUpdated);
         }
 
+        [ValidationAspect(typeof(DersEkleDTOValidator))]
         public IResult AddDersWithBolumler(DersEkleDTO dersEkleDto)
         {
             // 1. Önce dersi ekle
             var ders = new Ders
             {
-                Ad = dersEkleDto.Ad
+                Ad = dersEkleDto.Ad,
+                Kod = dersEkleDto.Kod
             };
             _dersDal.Add(ders);
 
@@ -131,13 +136,15 @@ namespace Business.Concrete
             return new SuccessDataResult<List<DersWithBolumlerDTO>>(result, $"{result.Count} ders bulundu.");
         }
 
+        [ValidationAspect(typeof(DersGuncelleDTOValidator))]
         public IResult UpdateDersWithBolumler(DersGuncelleDTO dersGuncelleDto)
         {
             // 1. Önce dersi güncelle
             var ders = new Ders
             {
                 Id = dersGuncelleDto.Id,
-                Ad = dersGuncelleDto.Ad
+                Ad = dersGuncelleDto.Ad,
+                Kod = dersGuncelleDto.Kod
             };
             _dersDal.Update(ders);
 
@@ -165,6 +172,43 @@ namespace Business.Concrete
             }
 
             return new SuccessResult("Ders ortak ders olarak güncellendi.");
+        }
+
+        public IDataResult<bool> IsKodUnique(string kod, int? excludeDersId = null)
+        {
+            var existingDers = _dersDal.GetAll(d => d.Kod == kod);
+            
+            if (excludeDersId.HasValue)
+            {
+                // Düzenleme modunda, kendi ID'si hariç kontrol et
+                existingDers = existingDers.Where(d => d.Id != excludeDersId.Value).ToList();
+            }
+            
+            bool isUnique = !existingDers.Any();
+            return new SuccessDataResult<bool>(isUnique, isUnique ? "Kod kullanılabilir" : "Bu kod zaten kullanımda");
+        }
+
+        public IDataResult<PagedResult<Ders>> GetPagedList(PaginationParams paginationParams)
+        {
+            // Arama terimi varsa filtrele (Ad veya Kod içinde ara)
+            if (!string.IsNullOrWhiteSpace(paginationParams.SearchTerm))
+            {
+                var pagedResult = _dersDal.GetPaged(
+                    paginationParams,
+                    d => d.Ad.Contains(paginationParams.SearchTerm) || 
+                         d.Kod.Contains(paginationParams.SearchTerm)
+                );
+                return new SuccessDataResult<PagedResult<Ders>>(
+                    pagedResult,
+                    $"{pagedResult.TotalCount} ders bulundu."
+                );
+            }
+
+            var result = _dersDal.GetPaged(paginationParams);
+            return new SuccessDataResult<PagedResult<Ders>>(
+                result,
+                $"{result.TotalCount} ders bulundu."
+            );
         }
     }
 }

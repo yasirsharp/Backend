@@ -59,6 +59,16 @@ namespace Business.DependecyResolvers.Autofac
             builder.RegisterType<DersBolumManager>().As<IDersBolumService>();
             builder.RegisterType<EfDersBolumDal>().As<IDersBolumDal>();
 
+            builder.RegisterType<EfDerslikBolumDal>().As<IDerslikBolumDal>();
+
+            // Notification ve Announcement servisleri
+            builder.RegisterType<NotificationManager>().As<INotificationService>();
+            builder.RegisterType<EfNotificationDal>().As<INotificationDal>();
+            
+            builder.RegisterType<AnnouncementManager>().As<IAnnouncementService>();
+            builder.RegisterType<EfAnnouncementDal>().As<IAnnouncementDal>();
+            builder.RegisterType<EfAnnouncementReadStatusDal>().As<IAnnouncementReadStatusDal>();
+
 
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
 

@@ -1,4 +1,5 @@
 ﻿using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using Entity.DTOs;
 using System;
@@ -20,5 +21,7 @@ namespace Business.Abstract
         IResult AddDersWithBolumler(DersEkleDTO dersEkleDto);
         IResult UpdateDersWithBolumler(DersGuncelleDTO dersGuncelleDto);
         IDataResult<List<DersWithBolumlerDTO>> GetAllWithBolumler();
+        IDataResult<bool> IsKodUnique(string kod, int? excludeDersId = null);
+        IDataResult<PagedResult<Ders>> GetPagedList(PaginationParams paginationParams);
     }
 }

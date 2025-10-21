@@ -1,4 +1,6 @@
-﻿namespace Core.Entities.Concrete
+﻿using System;
+
+namespace Core.Entities.Concrete
 {
     public class User : IEntity
     {
@@ -10,5 +12,9 @@
         public byte[] PasswordHash { get; set; }
         public byte[] PasswordSalt { get; set; }
         public bool Status { get; set; }
+
+        // Audit Alanları (IEntity'den gelir)
+        public DateTime CreatedDate { get; set; }
+        public DateTime? UpdatedDate { get; set; }
     }
 }

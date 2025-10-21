@@ -2,12 +2,14 @@
 using Business.BusinessAspects.Autofac;
 using Business.Constants;
 using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
 using Entity.Concrete;
 using Entity.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -247,6 +249,20 @@ namespace Business.Concrete
             catch (Exception err)
             {
                 return new ErrorResult(err.Message);
+            }
+        }
+
+        public IDataResult<PagedResult<SinavDetay>> GetPagedList(PaginationParams paginationParams)
+        {
+            try
+            {
+                // SinavDetay has SinavTarihi property for date-based searching if needed
+                var pagedResult = _sinavDetayDal.GetPaged(paginationParams, null);
+                return new SuccessDataResult<PagedResult<SinavDetay>>(pagedResult, $"Toplam {pagedResult.TotalCount} sınav detayı bulundu.");
+            }
+            catch (Exception err)
+            {
+                return new ErrorDataResult<PagedResult<SinavDetay>>(Messages.SomethingWrong + " " + err.Message);
             }
         }
     }

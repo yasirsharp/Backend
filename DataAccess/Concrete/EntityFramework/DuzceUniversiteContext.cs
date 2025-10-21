@@ -21,6 +21,12 @@ namespace DataAccess.Concrete.EntityFramework
         public DbSet<OperationClaim> OperationClaims { get; set; }
         public DbSet<UserOperationClaim> UserOperationClaims { get; set; }
         public DbSet<DersBolum> DersBolum { get; set; }
+        public DbSet<DerslikBolum> DerslikBolum { get; set; }
+        
+        // Notification System
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Announcement> Announcements { get; set; }
+        public DbSet<AnnouncementReadStatus> AnnouncementReadStatus { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

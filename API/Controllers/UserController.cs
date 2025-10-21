@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Business.Abstract;
 using Core.Entities.Concrete;
+using Core.Utilites.Results.Pagination;
 
 namespace API.Controllers
 {
@@ -19,6 +20,29 @@ namespace API.Controllers
         public IActionResult GetAll()
         {
             var result = _userService.GetAll();
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        [HttpGet("paged")]
+        public IActionResult GetPaged(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortOrder = null,
+            [FromQuery] string? searchTerm = null)
+        {
+            var paginationParams = new PaginationParams
+            {
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                SortBy = sortBy,
+                SortOrder = sortOrder,
+                SearchTerm = searchTerm
+            };
+
+            var result = _userService.GetPagedList(paginationParams);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

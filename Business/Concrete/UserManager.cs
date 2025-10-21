@@ -2,10 +2,12 @@
 using Business.Constants;
 using Core.Entities.Concrete;
 using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -140,6 +142,30 @@ namespace Business.Concrete
         {
             _userDal.Update(user);
             return new SuccessResult(Messages.UserUpdated);
+        }
+
+        public IDataResult<PagedResult<User>> GetPagedList(PaginationParams paginationParams)
+        {
+            try
+            {
+                var searchTerm = paginationParams.SearchTerm?.ToLower();
+                Expression<Func<User, bool>> filter = null;
+
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    filter = u => u.FirstName.ToLower().Contains(searchTerm) ||
+                                  u.LastName.ToLower().Contains(searchTerm) ||
+                                  u.Email.ToLower().Contains(searchTerm) ||
+                                  u.UserName.ToLower().Contains(searchTerm);
+                }
+
+                var pagedResult = _userDal.GetPaged(paginationParams, filter);
+                return new SuccessDataResult<PagedResult<User>>(pagedResult, $"Toplam {pagedResult.TotalCount} kullanıcı bulundu.");
+            }
+            catch (Exception err)
+            {
+                return new ErrorDataResult<PagedResult<User>>(Messages.SomethingWrong + " " + err.Message);
+            }
         }
     }
 }

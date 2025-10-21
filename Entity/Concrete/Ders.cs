@@ -10,7 +10,12 @@ namespace Entity.Concrete
     public class Ders : IEntity
     {
         public int Id { get; set; }
-        public string Ad { get; set; }
-        public string Kod { get; set; }
+        public string Ad { get; set; } = null!;
+        public string Kod { get; set; } = null!;
+
+        // Audit Alanları (IEntity'den gelir)
+        public DateTime CreatedDate { get; set; }
+        public DateTime? UpdatedDate { get; set; }
+        public bool Status { get; set; }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Business.Abstract;
 using Business.Constants;
 using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
 using Entity.Concrete;
 using System.Linq.Expressions;
@@ -84,6 +85,20 @@ namespace Business.Concrete
         public IDataResult<List<AkademikPersonel>> GetList(Expression<Func<AkademikPersonel, bool>> filter = null)
         {
             return new SuccessDataResult<List<AkademikPersonel>>(_akademikPersonelDal.GetAll(filter), $"{_akademikPersonelDal.GetAll(filter).Count} tane bulundu.");
+        }
+
+        public IDataResult<PagedResult<AkademikPersonel>> GetPagedList(PaginationParams paginationParams)
+        {
+            var searchTerm = paginationParams.SearchTerm?.ToLower();
+            Expression<Func<AkademikPersonel, bool>> filter = null;
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filter = ap => ap.Ad.ToLower().Contains(searchTerm);
+            }
+
+            var pagedResult = _akademikPersonelDal.GetPaged(paginationParams, filter);
+            return new SuccessDataResult<PagedResult<AkademikPersonel>>(pagedResult, $"Toplam {pagedResult.TotalCount} akademik personel bulundu.");
         }
 
         public IResult Update(AkademikPersonel akademikPersonel)

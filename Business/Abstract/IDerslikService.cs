@@ -1,5 +1,7 @@
 ﻿using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
+using Entity.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,5 +18,9 @@ namespace Business.Abstract
         IResult Add(Derslik derslik);
         IResult Delete(Derslik derslik);
         IResult Update(Derslik derslik);
+        IResult AddDerslikWithBolumler(DerslikEkleDTO derslikEkleDto);
+        IResult UpdateDerslikWithBolumler(DerslikGuncelleDTO derslikGuncelleDto);
+        IDataResult<List<DerslikWithBolumlerDTO>> GetAllWithBolumler();
+        IDataResult<PagedResult<Derslik>> GetPagedList(PaginationParams paginationParams);
     }
 }

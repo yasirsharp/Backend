@@ -1,4 +1,5 @@
 ﻿using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using Entity.DTOs;
 using System.Linq.Expressions;
@@ -16,5 +17,6 @@ namespace Business.Abstract
         IResult Add(DersBolumAkademikPersonel dersBolumAkademikPersonel);
         IResult Delete(DersBolumAkademikPersonel dersBolumAkademikPersonel);
         IResult Update(DersBolumAkademikPersonel dersBolumAkademikPersonel);
+        IDataResult<PagedResult<DersBolumAkademikPersonelDTO>> GetPagedList(PaginationParams paginationParams);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Business.Abstract;
 using Business.Constants;
 using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
 using Entity.Concrete;
 using Entity.DTOs;
@@ -114,6 +115,91 @@ namespace Business.Concrete
             catch (Exception err)
             {
                 return new ErrorDataResult<List<DersBolumAkademikPersonelDTO>>(Messages.SomethingWrong + " " + err.Message);
+            }
+        }
+
+        public IDataResult<PagedResult<DersBolumAkademikPersonelDTO>> GetPagedList(PaginationParams paginationParams)
+        {
+            try
+            {
+                // GetAllDetails metodunu kullanarak tüm DTO'ları alıp sonra sayfalama yapalım
+                var allDetails = _dbapDal.GetDetails(null);
+                
+                if (allDetails == null || !allDetails.Any())
+                {
+                    return new SuccessDataResult<PagedResult<DersBolumAkademikPersonelDTO>>(
+                        new PagedResult<DersBolumAkademikPersonelDTO>
+                        {
+                            Items = new List<DersBolumAkademikPersonelDTO>(),
+                            TotalCount = 0,
+                            PageNumber = paginationParams.PageNumber,
+                            PageSize = paginationParams.PageSize,
+                            SortBy = paginationParams.SortBy,
+                            SortOrder = paginationParams.SortOrder,
+                            SearchTerm = paginationParams.SearchTerm
+                        },
+                        "Hiç veri bulunamadı."
+                    );
+                }
+
+                var query = allDetails.AsQueryable();
+
+                // SearchTerm ile filtreleme - Ders adı, Bölüm adı veya Akademik Personel adına göre
+                if (!string.IsNullOrWhiteSpace(paginationParams.SearchTerm))
+                {
+                    var searchTerm = paginationParams.SearchTerm.ToLower();
+                    query = query.Where(x => 
+                        x.DersAd.ToLower().Contains(searchTerm) ||
+                        x.BolumAd.ToLower().Contains(searchTerm) ||
+                        x.AkademikPersonelAd.ToLower().Contains(searchTerm)
+                    );
+                }
+
+                var totalCount = query.Count();
+
+                // Sıralama
+                if (!string.IsNullOrWhiteSpace(paginationParams.SortBy))
+                {
+                    var sortBy = paginationParams.SortBy;
+                    var isAscending = paginationParams.IsAscending;
+
+                    query = sortBy.ToLower() switch
+                    {
+                        "dersad" => isAscending ? query.OrderBy(x => x.DersAd) : query.OrderByDescending(x => x.DersAd),
+                        "bolumad" => isAscending ? query.OrderBy(x => x.BolumAd) : query.OrderByDescending(x => x.BolumAd),
+                        "akademikpersonelad" => isAscending ? query.OrderBy(x => x.AkademikPersonelAd) : query.OrderByDescending(x => x.AkademikPersonelAd),
+                        "id" => isAscending ? query.OrderBy(x => x.Id) : query.OrderByDescending(x => x.Id),
+                        _ => query
+                    };
+                }
+
+                // Sayfalama
+                var items = query
+                    .Skip((paginationParams.PageNumber - 1) * paginationParams.PageSize)
+                    .Take(paginationParams.PageSize)
+                    .ToList();
+
+                var pagedResult = new PagedResult<DersBolumAkademikPersonelDTO>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    PageNumber = paginationParams.PageNumber,
+                    PageSize = paginationParams.PageSize,
+                    SortBy = paginationParams.SortBy,
+                    SortOrder = paginationParams.SortOrder,
+                    SearchTerm = paginationParams.SearchTerm
+                };
+
+                return new SuccessDataResult<PagedResult<DersBolumAkademikPersonelDTO>>(
+                    pagedResult, 
+                    $"Toplam {totalCount} ders-bölüm-akademik personel kaydı bulundu."
+                );
+            }
+            catch (Exception err)
+            {
+                return new ErrorDataResult<PagedResult<DersBolumAkademikPersonelDTO>>(
+                    Messages.SomethingWrong + " " + err.Message
+                );
             }
         }
     }

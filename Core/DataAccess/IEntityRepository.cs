@@ -1,4 +1,5 @@
 ﻿using Core.Entities;
+using Core.Utilites.Results.Pagination;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,5 +16,12 @@ namespace Core.DataAccess
         T Get(Expression<Func<T, bool>> filter = null);
         void Update(T entity);
         void Delete(T entity);
+
+        /// <summary>
+        /// Sayfalanmış, sıralanmış ve filtrelenmiş sonuç döner
+        /// </summary>
+        PagedResult<T> GetPaged(
+            PaginationParams paginationParams,
+            Expression<Func<T, bool>> filter = null);
     }
 }

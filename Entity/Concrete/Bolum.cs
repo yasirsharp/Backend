@@ -1,4 +1,5 @@
 ﻿using Core.Entities;
+using System;
 
 namespace Entity.Concrete
 {
@@ -6,5 +7,10 @@ namespace Entity.Concrete
     {
         public int Id { get; set; }
         public string Ad { get; set; }
+
+        // Audit Alanları (IEntity'den gelir)
+        public DateTime CreatedDate { get; set; }
+        public DateTime? UpdatedDate { get; set; }
+        public bool Status { get; set; }
     }
 }

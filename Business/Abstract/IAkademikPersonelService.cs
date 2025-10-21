@@ -1,4 +1,5 @@
 ﻿using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using System;
 using System.Collections.Generic;
@@ -16,5 +17,6 @@ namespace Business.Abstract
         IResult Add(AkademikPersonel akademikPersonel);
         IResult Delete(AkademikPersonel akademikPersonel);
         IResult Update(AkademikPersonel akademikPersonel);
+        IDataResult<PagedResult<AkademikPersonel>> GetPagedList(PaginationParams paginationParams);
     }
 }

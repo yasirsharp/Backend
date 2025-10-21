@@ -1,4 +1,5 @@
 ﻿using Core.Utilities.Results;
+using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using Entity.DTOs;
 using System;
@@ -24,5 +25,6 @@ namespace Business.Abstract
         IResult Add(SinavKayitDTO sinavKayitDTO);
         IResult Delete(SinavDetay sinavDetay);
         IResult Update(SinavGuncelleDTO sinavGuncelleDTO);
+        IDataResult<PagedResult<SinavDetay>> GetPagedList(PaginationParams paginationParams);
     }
 }
