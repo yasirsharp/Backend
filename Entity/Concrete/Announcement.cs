@@ -36,6 +36,12 @@ namespace Entity.Concrete
         public string TargetAudience { get; set; }
         
         /// <summary>
+        /// 🆕 Belirli bir bölüme özel duyuru (NULL = tüm bölümler)
+        /// Görevli Personel sadece kendi bölümüne duyuru gönderebilir
+        /// </summary>
+        public int? TargetBolumId { get; set; }
+        
+        /// <summary>
         /// Duyuru yayınlanma tarihi
         /// </summary>
         public DateTime PublishDate { get; set; }

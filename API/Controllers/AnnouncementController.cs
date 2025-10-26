@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
+using System.Security.Claims; // 🆕 Token claims için
+using System.Linq; // 🆕
 
 namespace API.Controllers
 {
@@ -83,6 +85,27 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// 🆕 Kullanıcı için geçerli duyuruları getirir (rol ve bölüm kontrolü ile)
+        /// Token'dan rol ve BolumId alınır
+        /// </summary>
+        [HttpGet("my-announcements")]
+        [Authorize]
+        public IActionResult GetMyAnnouncements()
+        {
+            // Token'dan bilgileri al
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "ogrenci";
+            var userBolumIdClaim = User.FindFirst("BolumId")?.Value;
+            int? userBolumId = !string.IsNullOrEmpty(userBolumIdClaim) 
+                ? int.Parse(userBolumIdClaim) 
+                : null;
+
+            var result = _announcementService.GetByUserId(userRole, userBolumId);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>
         /// Hedef kitleye göre aktif duyuruları getirir
         /// </summary>
         /// <param name="role">Hedef kitle (öğrenci, öğretmen, all)</param>
@@ -109,6 +132,26 @@ namespace API.Controllers
                 return Ok(result);
             return BadRequest(result);
         }
+        
+        /// <summary>
+        /// 🆕 Kullanıcı için popup duyuruları getirir (bölüm kontrolü ile)
+        /// Token'dan rol ve BolumId alınır
+        /// </summary>
+        [HttpGet("my-popup")]
+        [Authorize]
+        public IActionResult GetMyPopup()
+        {
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "ogrenci";
+            var userBolumIdClaim = User.FindFirst("BolumId")?.Value;
+            int? userBolumId = !string.IsNullOrEmpty(userBolumIdClaim) 
+                ? int.Parse(userBolumIdClaim) 
+                : null;
+
+            var result = _announcementService.GetPopupAnnouncementsByUser(userRole, userBolumId);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
 
         /// <summary>
         /// Yeni duyuru oluşturur (Admin)
@@ -118,6 +161,28 @@ namespace API.Controllers
         public IActionResult Add([FromBody] Announcement announcement)
         {
             var result = _announcementService.Add(announcement);
+            if (result.Success)
+                return Created("", result);
+            return BadRequest(result);
+        }
+        
+        /// <summary>
+        /// 🆕 Yeni duyuru oluşturur (Yetki kontrolü ile)
+        /// Admin: Herkese gönderebilir
+        /// Görevli Personel: Sadece kendi bölümüne gönderebilir
+        /// </summary>
+        [HttpPost("create")]
+        [Authorize(Roles = "Admin,Super.Admin,gorevli.personel")]
+        public IActionResult CreateWithPermission([FromBody] Announcement announcement)
+        {
+            // Token'dan bilgileri al
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "ogrenci";
+            var userBolumIdClaim = User.FindFirst("BolumId")?.Value;
+            int? userBolumId = !string.IsNullOrEmpty(userBolumIdClaim) 
+                ? int.Parse(userBolumIdClaim) 
+                : null;
+
+            var result = _announcementService.AddWithPermission(announcement, userRole, userBolumId);
             if (result.Success)
                 return Created("", result);
             return BadRequest(result);

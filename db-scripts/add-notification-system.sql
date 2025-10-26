@@ -1,7 +1,11 @@
 /*
  * Script: Bildirim, Duyuru ve Popup Sistemi
  * Açıklama: Bildirim, duyuru ve popup tabloları oluşturur
- * Tarih: 21 Ekim 2025
+ * Tarih: 25 Ekim 2025 (Güncellendi)
+ * 
+ * Yetkilendirme:
+ * - Admin: Herkese bildirim/duyuru gönderebilir
+ * - Görevli Personel: Sadece kendi bölümüne bildirim gönderebilir
  * 
  * Kullanım:
  * 1. SQL Server Management Studio'da bu dosyayı aç
@@ -71,6 +75,7 @@ BEGIN
         [Type] NVARCHAR(50) NOT NULL, -- general, urgent, maintenance, event
         [Priority] INT NOT NULL DEFAULT 0, -- 0: Normal, 1: Önemli, 2: Acil
         [TargetAudience] NVARCHAR(100) NOT NULL, -- all, admin, gorevli.personel, personel, ogrenci
+        [TargetBolumId] INT NULL, -- 🆕 Belirli bir bölüme özel (NULL = tüm bölümler)
         [PublishDate] DATETIME NOT NULL DEFAULT GETDATE(), -- Yayınlanma tarihi
         [ExpiryDate] DATETIME NULL, -- Bitiş tarihi (opsiyonel)
         [IsActive] BIT NOT NULL DEFAULT 1, -- Aktif/Pasif
@@ -81,18 +86,22 @@ BEGIN
         [Status] BIT NOT NULL DEFAULT 1,
         
         CONSTRAINT FK_Announcements_Users FOREIGN KEY ([CreatedBy]) 
-            REFERENCES [Users]([Id])
+            REFERENCES [Users]([Id]),
+        CONSTRAINT FK_Announcements_Bolum FOREIGN KEY ([TargetBolumId]) -- 🆕 Bölüm FK
+            REFERENCES [Bolum]([Id])
     );
     
     -- Indexler
     CREATE INDEX IX_Announcements_IsActive ON [Announcements]([IsActive]);
     CREATE INDEX IX_Announcements_PublishDate ON [Announcements]([PublishDate]);
     CREATE INDEX IX_Announcements_TargetAudience ON [Announcements]([TargetAudience]);
+    CREATE INDEX IX_Announcements_TargetBolumId ON [Announcements]([TargetBolumId]); -- 🆕 Bölüm index
     
     PRINT '✓ Announcements tablosu oluşturuldu'
     PRINT '  - Type: general/urgent/maintenance/event'
     PRINT '  - Priority: 0=Normal, 1=Önemli, 2=Acil'
     PRINT '  - TargetAudience: Hedef kitle (rol bazlı)'
+    PRINT '  - TargetBolumId: Belirli bölüme özel (NULL = tüm bölümler)' -- 🆕
     PRINT '  - ShowAsPopup: Popup olarak gösterilsin mi?'
 END
 ELSE

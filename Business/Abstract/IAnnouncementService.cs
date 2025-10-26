@@ -29,16 +29,32 @@ namespace Business.Abstract
         /// Hedef kitleye göre aktif duyuruları getirir
         /// </summary>
         IDataResult<List<Announcement>> GetByTargetAudience(string role);
+        
+        /// <summary>
+        /// 🆕 Kullanıcı için geçerli duyuruları getirir (rol ve bölüm kontrolü ile)
+        /// </summary>
+        IDataResult<List<Announcement>> GetByUserId(string targetAudience, int? userBolumId);
 
         /// <summary>
         /// Popup olarak gösterilecek duyuruları getirir
         /// </summary>
         IDataResult<List<Announcement>> GetPopupAnnouncements(string role);
+        
+        /// <summary>
+        /// 🆕 Popup duyuruları getir (bölüm kontrolü ile)
+        /// </summary>
+        IDataResult<List<Announcement>> GetPopupAnnouncementsByUser(string targetAudience, int? userBolumId);
 
         /// <summary>
         /// Yeni duyuru ekler
         /// </summary>
         IResult Add(Announcement announcement);
+        
+        /// <summary>
+        /// 🆕 Yeni duyuru ekle (yetki kontrolü ile)
+        /// Görevli Personel sadece kendi bölümüne duyuru gönderebilir
+        /// </summary>
+        IResult AddWithPermission(Announcement announcement, string userRole, int? userBolumId);
 
         /// <summary>
         /// Duyuru günceller
