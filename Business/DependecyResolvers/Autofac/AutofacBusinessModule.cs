@@ -6,6 +6,7 @@ using Castle.DynamicProxy;
 using Core.Utilities.Interceptors;
 using Core.Utilities.Security.JWT;
 using DataAccess.Abstract;
+using DataAccess.Concrete;
 using DataAccess.Concrete.EntityFramework;
 using System;
 using System.Collections.Generic;
@@ -68,6 +69,13 @@ namespace Business.DependecyResolvers.Autofac
             builder.RegisterType<AnnouncementManager>().As<IAnnouncementService>();
             builder.RegisterType<EfAnnouncementDal>().As<IAnnouncementDal>();
             builder.RegisterType<EfAnnouncementReadStatusDal>().As<IAnnouncementReadStatusDal>();
+
+            // YasirSharp AI - Assistant System (26 Ekim 2025)
+            builder.RegisterType<AssistantManager>().As<IAssistantService>();
+            builder.RegisterType<EfAssistantInteractionDal>().As<IAssistantInteractionDal>();
+            
+            builder.RegisterType<UserAssistantPreferenceManager>().As<IUserAssistantPreferenceService>();
+            builder.RegisterType<EfUserAssistantPreferenceDal>().As<IUserAssistantPreferenceDal>();
 
 
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();

@@ -22,7 +22,7 @@ namespace DataAccess.Concrete.EntityFramework
                 {
                     try
                     {
-                        // Saat dönüþümleri
+                        // Saat dï¿½nï¿½ï¿½ï¿½mleri
                         TimeOnly baslangicSaati = TimeOnly.Parse(sinavKayitDTO.SinavBaslangicSaati);
                         TimeOnly bitisSaati = TimeOnly.Parse(sinavKayitDTO.SinavBitisSaati);
 
@@ -31,7 +31,9 @@ namespace DataAccess.Concrete.EntityFramework
                             DersBolumAkademikPersonelId = sinavKayitDTO.DersBolumAkademikPersonelId,
                             SinavTarihi = sinavKayitDTO.SinavTarihi,
                             SinavBaslangicSaati = baslangicSaati,
-                            SinavBitisSaati = bitisSaati
+                            SinavBitisSaati = bitisSaati,
+                            CreatedDate = DateTime.Now,
+                            Status = true // âœ… Status alanÄ±nÄ± ekle
                         };
                         context.SinavDetay.Add(sinavDetay);
                         context.SaveChanges();
@@ -42,7 +44,10 @@ namespace DataAccess.Concrete.EntityFramework
                             {
                                 SinavDetayId = sinavDetay.Id,
                                 DerslikId = derslik.DerslikId,
-                                GozetmenId = derslik.GozetmenId ?? 0 
+                                GozetmenId = derslik.GozetmenId ?? 0,
+                                CreatedDate = DateTime.Now,
+                                UpdatedDate = DateTime.Now,
+                                Status = true
                             };
                             context.SinavDerslik.Add(sinavDerslik);
                         }
@@ -94,11 +99,11 @@ namespace DataAccess.Concrete.EntityFramework
                              from dba in dba_join.DefaultIfEmpty()
                              where s.SinavTarihi.Date == sinavTarihi.Date &&
                                    (
-                                       // Derslik çakýþma kontrolü
+                                       // Derslik ï¿½akï¿½ï¿½ma kontrolï¿½
                                        (derslikIdleri.Contains(sd.DerslikId)) ||
-                                       // Gözetmen çakýþma kontrolü
+                                       // Gï¿½zetmen ï¿½akï¿½ï¿½ma kontrolï¿½
                                        (gozetmenIdleri.Contains(sd.GozetmenId)) ||
-                                       // Akademik personel çakýþma kontrolü
+                                       // Akademik personel ï¿½akï¿½ï¿½ma kontrolï¿½
                                        (akademikPersonelId == dba.AkademikPersonelId)
                                    ) &&
                                    (
@@ -406,6 +411,8 @@ namespace DataAccess.Concrete.EntityFramework
                             sinavDetay.SinavTarihi = sinavGuncelleDTO.SinavTarihi;
                             sinavDetay.SinavBaslangicSaati = sinavGuncelleDTO.SinavBaslangicSaati;
                             sinavDetay.SinavBitisSaati = sinavGuncelleDTO.SinavBitisSaati;
+                            sinavDetay.UpdatedDate = DateTime.Now;
+                            sinavDetay.Status = true; // âœ… Status alanÄ±nÄ± da gÃ¼ncelle
 
                             var existingSinavDerslikler = context.SinavDerslik.Where(x => x.SinavDetayId == sinavGuncelleDTO.Id);
                             context.SinavDerslik.RemoveRange(existingSinavDerslikler);
@@ -416,7 +423,10 @@ namespace DataAccess.Concrete.EntityFramework
                                 {
                                     SinavDetayId = sinavDetay.Id,
                                     DerslikId = derslik.DerslikId,
-                                    GozetmenId = derslik.GozetmenId ?? 0
+                                    GozetmenId = derslik.GozetmenId ?? 0,
+                                    CreatedDate = DateTime.Now,
+                                    UpdatedDate = DateTime.Now,
+                                    Status = true
                                 };
                                 context.SinavDerslik.Add(sinavDerslik);
                             }

@@ -27,6 +27,10 @@ namespace DataAccess.Concrete.EntityFramework
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Announcement> Announcements { get; set; }
         public DbSet<AnnouncementReadStatus> AnnouncementReadStatus { get; set; }
+        
+        // YasirSharp AI - Assistant System (26 Ekim 2025)
+        public DbSet<AssistantInteraction> AssistantInteractions { get; set; }
+        public DbSet<UserAssistantPreference> UserAssistantPreferences { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

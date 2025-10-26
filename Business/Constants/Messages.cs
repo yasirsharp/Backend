@@ -83,5 +83,15 @@ namespace Business.Constants
         public static string AnnouncementDeleted = "Duyuru silindi.";
         public static string AnnouncementNotFound = "Duyuru bulunamadı.";
         public static string AnnouncementMarkedAsRead = "Duyuru okundu olarak işaretlendi.";
+
+        // YasirSharp AI - Assistant Messages (26 Ekim 2025)
+        public static string InteractionLogged = "Etkileşim kaydedildi.";
+        public static string PageGuideNotFound = "Sayfa rehberi bulunamadı.";
+        public static string PreferenceNotFound = "Kullanıcı tercihi bulunamadı.";
+        public static string PreferenceCreated = "Kullanıcı tercihi oluşturuldu.";
+        public static string PreferenceUpdated = "Kullanıcı tercihi güncellendi.";
+        public static string OnboardingCompleted = "Giriş turu tamamlandı.";
+        public static string BotEnabled = "Yardımcı bot etkinleştirildi.";
+        public static string BotDisabled = "Yardımcı bot devre dışı bırakıldı.";
     }
 }
