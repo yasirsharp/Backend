@@ -25,7 +25,7 @@ namespace Business.Concrete
 
         public IDataResult<List<Announcement>> GetList()
         {
-            var announcements = _announcementDal.GetAll();
+            var announcements = _announcementDal.GetAllWithBolum();
             return new SuccessDataResult<List<Announcement>>(
                 announcements,
                 $"{announcements.Count} duyuru bulundu."
@@ -34,7 +34,7 @@ namespace Business.Concrete
 
         public IDataResult<Announcement> GetById(int announcementId)
         {
-            var announcement = _announcementDal.Get(a => a.Id == announcementId);
+            var announcement = _announcementDal.GetByIdWithBolum(announcementId);
             if (announcement == null)
             {
                 return new ErrorDataResult<Announcement>(Messages.AnnouncementNotFound);

@@ -3,6 +3,7 @@ using Core.Utilities.Results;
 using DataAccess.Abstract;
 using Entity.Concrete;
 using Entity.DTOs;
+using Core.Entities.Concrete;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,22 +15,126 @@ namespace Business.Concrete
     public class BolumAkademikPersonelManager : IBolumAkademikPersonellerService
     {
         IBolumAkademikPersonellerDal _bolumAkademikPersonellerDal;
+        IUserDal _userDal;
+        IUserOperationClaimDal _userOperationClaimDal;
+        IOperationClaimDal _operationClaimDal;
+        IAkademikPersonelDal _akademikPersonelDal;
 
-        public BolumAkademikPersonelManager(IBolumAkademikPersonellerDal bolumAkademikPersonellerDal)
+        public BolumAkademikPersonelManager(
+            IBolumAkademikPersonellerDal bolumAkademikPersonellerDal,
+            IUserDal userDal,
+            IUserOperationClaimDal userOperationClaimDal,
+            IOperationClaimDal operationClaimDal,
+            IAkademikPersonelDal akademikPersonelDal)
         {
             _bolumAkademikPersonellerDal = bolumAkademikPersonellerDal;
+            _userDal = userDal;
+            _userOperationClaimDal = userOperationClaimDal;
+            _operationClaimDal = operationClaimDal;
+            _akademikPersonelDal = akademikPersonelDal;
         }
 
         public IResult Add(BolumAkademikPersoneller bolumAkademikPersoneller)
         {
-            _bolumAkademikPersonellerDal.Add(bolumAkademikPersoneller);
-            return new SuccessResult();
+            try
+            {
+                Console.WriteLine($"[BolumAkademikPersonel] Add işlemi başladı - AkademikPersonelId: {bolumAkademikPersoneller.AkademikPersonelId}, BolumId: {bolumAkademikPersoneller.BolumId}");
+                
+                // Önce atamayı kaydet
+                _bolumAkademikPersonellerDal.Add(bolumAkademikPersoneller);
+                Console.WriteLine($"[BolumAkademikPersonel] Atama kaydedildi");
+
+                // ✅ YENİ: Akademik personelin UserId'sini bul
+                var akademikPersonel = _akademikPersonelDal.Get(ap => ap.Id == bolumAkademikPersoneller.AkademikPersonelId);
+                Console.WriteLine($"[BolumAkademikPersonel] AkademikPersonel bulundu: {akademikPersonel != null}, UserId: {akademikPersonel?.UserId}");
+                
+                if (akademikPersonel != null && akademikPersonel.UserId > 0)
+                {
+                    // "bolum.gorevlisi" role'ünü bul
+                    var gorevliRole = _operationClaimDal.Get(r => r.Name == "bolum.gorevlisi");
+                    Console.WriteLine($"[BolumAkademikPersonel] bolum.gorevlisi role bulundu: {gorevliRole != null}, RoleId: {gorevliRole?.Id}");
+                    
+                    if (gorevliRole != null)
+                    {
+                        // Kullanıcının zaten bu role'ü var mı kontrol et
+                        var existingUserRole = _userOperationClaimDal.Get(uoc => 
+                            uoc.UserId == akademikPersonel.UserId && 
+                            uoc.OperationClaimId == gorevliRole.Id
+                        );
+                        Console.WriteLine($"[BolumAkademikPersonel] Kullanıcıda mevcut role var mı: {existingUserRole != null}");
+                        
+                        // Eğer role yoksa ekle
+                        if (existingUserRole == null)
+                        {
+                            var userOperationClaim = new UserOperationClaim
+                            {
+                                UserId = akademikPersonel.UserId,
+                                OperationClaimId = gorevliRole.Id
+                            };
+                            _userOperationClaimDal.Add(userOperationClaim);
+                            Console.WriteLine($"[BolumAkademikPersonel] ✅ bolum.gorevlisi role'ü eklendi - UserId: {akademikPersonel.UserId}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[BolumAkademikPersonel] ⚠️ Kullanıcı zaten bolum.gorevlisi role'üne sahip");
+                        }
+                    }
+                }
+
+                return new SuccessResult("Akademik personel bölüme atandı ve gerekli yetkiler verildi.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[BolumAkademikPersonel] ❌ HATA: {ex.Message}");
+                Console.WriteLine($"[BolumAkademikPersonel] Stack Trace: {ex.StackTrace}");
+                return new ErrorResult($"Atama işlemi sırasında bir hata oluştu: {ex.Message}");
+            }
         }
 
         public IResult Delete(BolumAkademikPersoneller bolumAkademikPersoneller)
         {
-            _bolumAkademikPersonellerDal.Delete(bolumAkademikPersoneller);
-            return new SuccessResult();
+            try
+            {
+                // ✅ YENİ: Silmeden önce kontroller yap
+                var akademikPersonel = _akademikPersonelDal.Get(ap => ap.Id == bolumAkademikPersoneller.AkademikPersonelId);
+                
+                if (akademikPersonel != null && akademikPersonel.UserId > 0)
+                {
+                    // Bu akademik personelin diğer aktif bölüm atamalarını kontrol et
+                    var otherAssignments = _bolumAkademikPersonellerDal.GetAll(bap => 
+                        bap.AkademikPersonelId == bolumAkademikPersoneller.AkademikPersonelId && 
+                        bap.Id != bolumAkademikPersoneller.Id &&
+                        bap.Status == true
+                    );
+                    
+                    // Eğer başka aktif bölüm ataması yoksa "bolum.gorevlisi" role'ünü kaldır
+                    if (otherAssignments.Count == 0)
+                    {
+                        var gorevliRole = _operationClaimDal.Get(r => r.Name == "bolum.gorevlisi");
+                        
+                        if (gorevliRole != null)
+                        {
+                            var userOperationClaim = _userOperationClaimDal.Get(uoc => 
+                                uoc.UserId == akademikPersonel.UserId && 
+                                uoc.OperationClaimId == gorevliRole.Id
+                            );
+                            
+                            if (userOperationClaim != null)
+                            {
+                                _userOperationClaimDal.Delete(userOperationClaim);
+                            }
+                        }
+                    }
+                }
+
+                // Atamayı sil
+                _bolumAkademikPersonellerDal.Delete(bolumAkademikPersoneller);
+                return new SuccessResult("Bölüm ataması kaldırıldı ve yetkiler güncellendi.");
+            }
+            catch (Exception ex)
+            {
+                return new ErrorResult($"Silme işlemi sırasında bir hata oluştu: {ex.Message}");
+            }
         }
 
         public IDataResult<BolumAkademikPersoneller> GetById(int id)

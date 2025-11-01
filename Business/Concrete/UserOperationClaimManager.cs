@@ -14,11 +14,22 @@ namespace Business.Concrete
     {
         private readonly IUserOperationClaimDal _userOperationClaimDal;
         private readonly IUserService _userService;
+        private readonly IOperationClaimDal _operationClaimDal;
+        private readonly IAkademikPersonelDal _akademikPersonelDal;
+        private readonly IBolumAkademikPersonellerDal _bolumAkademikPersonellerDal;
 
-        public UserOperationClaimManager(IUserOperationClaimDal userOperationClaimDal, IUserService userService)
+        public UserOperationClaimManager(
+            IUserOperationClaimDal userOperationClaimDal, 
+            IUserService userService,
+            IOperationClaimDal operationClaimDal,
+            IAkademikPersonelDal akademikPersonelDal,
+            IBolumAkademikPersonellerDal bolumAkademikPersonellerDal)
         {
             _userOperationClaimDal = userOperationClaimDal;
             _userService = userService;
+            _operationClaimDal = operationClaimDal;
+            _akademikPersonelDal = akademikPersonelDal;
+            _bolumAkademikPersonellerDal = bolumAkademikPersonellerDal;
         }
 
         public IResult Add(UserOperationClaim userOperationClaim)
@@ -38,6 +49,32 @@ namespace Business.Concrete
         {
             try
             {
+                // ✅ YENİ: "bolum.gorevlisi" role'ü siliniyorsa kontrol yap
+                var role = _operationClaimDal.Get(r => r.Id == userOperationClaim.OperationClaimId);
+                
+                if (role != null && role.Name == "bolum.gorevlisi")
+                {
+                    // Bu kullanıcının akademik personel kaydını bul
+                    var akademikPersonel = _akademikPersonelDal.Get(ap => ap.UserId == userOperationClaim.UserId);
+                    
+                    if (akademikPersonel != null)
+                    {
+                        // Aktif bölüm atamalarını kontrol et
+                        var activeAssignments = _bolumAkademikPersonellerDal.GetAll(bap => 
+                            bap.AkademikPersonelId == akademikPersonel.Id && 
+                            bap.Status == true
+                        );
+                        
+                        if (activeAssignments.Count > 0)
+                        {
+                            return new ErrorResult(
+                                "Bu kullanıcının aktif bölüm atamaları bulunmaktadır. " +
+                                "Önce bölüm atamalarını kaldırmanız gerekmektedir."
+                            );
+                        }
+                    }
+                }
+
                 _userOperationClaimDal.Delete(userOperationClaim);
                 return new SuccessResult(Messages.UserOperationClaimDeleted);
             }

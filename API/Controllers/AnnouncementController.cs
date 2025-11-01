@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
+using Entity.DTOs;
 using System.Security.Claims; // 🆕 Token claims için
 using System.Linq; // 🆕
 
@@ -23,7 +24,7 @@ namespace API.Controllers
         /// Tüm duyuruları getirir (Admin için)
         /// </summary>
         [HttpGet]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,super.admin")]
         public IActionResult GetAll()
         {
             var result = _announcementService.GetList();
@@ -36,7 +37,7 @@ namespace API.Controllers
         /// Sayfalanmış duyuru listesi
         /// </summary>
         [HttpGet("paged")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,super.admin")]
         public IActionResult GetPaged(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
@@ -157,9 +158,25 @@ namespace API.Controllers
         /// Yeni duyuru oluşturur (Admin)
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public IActionResult Add([FromBody] Announcement announcement)
+        [Authorize(Roles = "super.admin")]
+        public IActionResult Add([FromBody] AnnouncementCreateDto dto)
         {
+            var announcement = new Announcement
+            {
+                Title = dto.Title,
+                Content = dto.Content,
+                Type = dto.Type,
+                Priority = dto.Priority,
+                TargetAudience = dto.TargetAudience,
+                TargetBolumId = dto.TargetBolumId,
+                PublishDate = dto.PublishDate,
+                ExpiryDate = dto.ExpiryDate,
+                ShowAsPopup = dto.ShowAsPopup,
+                CreatedBy = dto.CreatedBy,
+                CreatedDate = DateTime.Now,
+                IsActive = dto.IsActive
+            };
+
             var result = _announcementService.Add(announcement);
             if (result.Success)
                 return Created("", result);
@@ -172,8 +189,8 @@ namespace API.Controllers
         /// Görevli Personel: Sadece kendi bölümüne gönderebilir
         /// </summary>
         [HttpPost("create")]
-        [Authorize(Roles = "Admin,Super.Admin,gorevli.personel")]
-        public IActionResult CreateWithPermission([FromBody] Announcement announcement)
+        [Authorize(Roles = "Admin,super.admin,gorevli.personel")]
+        public IActionResult CreateWithPermission([FromBody] AnnouncementCreateDto dto)
         {
             // Token'dan bilgileri al
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "ogrenci";
@@ -181,6 +198,23 @@ namespace API.Controllers
             int? userBolumId = !string.IsNullOrEmpty(userBolumIdClaim) 
                 ? int.Parse(userBolumIdClaim) 
                 : null;
+
+            // DTO'dan entity oluştur
+            var announcement = new Announcement
+            {
+                Title = dto.Title,
+                Content = dto.Content,
+                Type = dto.Type,
+                Priority = dto.Priority,
+                TargetAudience = dto.TargetAudience,
+                TargetBolumId = dto.TargetBolumId,
+                PublishDate = dto.PublishDate,
+                ExpiryDate = dto.ExpiryDate,
+                ShowAsPopup = dto.ShowAsPopup,
+                IsActive = dto.IsActive,
+                CreatedBy = dto.CreatedBy,
+                CreatedDate = DateTime.Now
+            };
 
             var result = _announcementService.AddWithPermission(announcement, userRole, userBolumId);
             if (result.Success)
@@ -192,9 +226,28 @@ namespace API.Controllers
         /// Duyuru günceller (Admin)
         /// </summary>
         [HttpPut]
-        [Authorize(Roles = "Admin")]
-        public IActionResult Update([FromBody] Announcement announcement)
+        [Authorize(Roles = "Admin,super.admin")]
+        public IActionResult Update([FromBody] AnnouncementUpdateDto dto)
         {
+            // Önce mevcut duyuruyu getir
+            var existingResult = _announcementService.GetById(dto.Id);
+            if (!existingResult.Success)
+                return NotFound(existingResult);
+
+            var announcement = existingResult.Data;
+            
+            // DTO'dan gelen değerleri güncelle
+            announcement.Title = dto.Title;
+            announcement.Content = dto.Content;
+            announcement.Type = dto.Type;
+            announcement.Priority = dto.Priority;
+            announcement.TargetAudience = dto.TargetAudience;
+            announcement.TargetBolumId = dto.TargetBolumId;
+            announcement.PublishDate = dto.PublishDate;
+            announcement.ExpiryDate = dto.ExpiryDate;
+            announcement.ShowAsPopup = dto.ShowAsPopup;
+            announcement.IsActive = dto.IsActive;
+
             var result = _announcementService.Update(announcement);
             if (result.Success)
                 return Ok(result);
@@ -205,7 +258,7 @@ namespace API.Controllers
         /// Duyuruyu siler (Admin)
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,super.admin")]
         public IActionResult Delete(int id)
         {
             var announcement = _announcementService.GetById(id);

@@ -33,13 +33,13 @@ namespace Business.Concrete
             return new SuccessDataResult<UserAssistantPreference>(preference);
         }
 
-        public IResult UpdatePreference(UserAssistantPreference preference)
+        public IDataResult<UserAssistantPreference> UpdatePreference(UserAssistantPreference preference)
         {
             var existingPreference = _userAssistantPreferenceDal.GetByUserId(preference.UserId);
             
             if (existingPreference == null)
             {
-                return new ErrorResult(Messages.PreferenceNotFound);
+                return new ErrorDataResult<UserAssistantPreference>(Messages.PreferenceNotFound);
             }
 
             // Güncelle
@@ -49,7 +49,9 @@ namespace Business.Concrete
             existingPreference.LastInteractionDate = preference.LastInteractionDate;
 
             _userAssistantPreferenceDal.Update(existingPreference);
-            return new SuccessResult(Messages.PreferenceUpdated);
+            
+            // Güncellenmiş data'yı döndür
+            return new SuccessDataResult<UserAssistantPreference>(existingPreference, Messages.PreferenceUpdated);
         }
 
         public IResult CompleteOnboarding(int userId)

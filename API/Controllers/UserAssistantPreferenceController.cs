@@ -8,7 +8,7 @@ namespace API.Controllers
     /// <summary>
     /// YasirSharp AI - User Preference Controller
     /// </summary>
-    [Route("api/[controller]")]
+    [Route("api/user-assistant-preference")] // Frontend route'u ile eşleştirdik
     [ApiController]
     [Authorize] // Tüm endpoint'ler authentication gerektirir
     public class UserAssistantPreferenceController : ControllerBase
@@ -22,7 +22,7 @@ namespace API.Controllers
 
         /// <summary>
         /// Kullanıcının tercihlerini getir
-        /// GET /api/UserAssistantPreference/{userId}
+        /// GET /api/user-assistant-preference/{userId}
         /// </summary>
         [HttpGet("{userId}")]
         public IActionResult GetPreference(int userId)
@@ -34,12 +34,31 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Tercihleri güncelle
-        /// PUT /api/UserAssistantPreference
+        /// Tercihleri güncelle (Partial Update)
+        /// PUT /api/user-assistant-preference/{userId}
+        /// Body: { "isEnabled": true, "preferredLanguage": "tr" } (partial)
         /// </summary>
-        [HttpPut]
-        public IActionResult UpdatePreference([FromBody] UserAssistantPreference preference)
+        [HttpPut("{userId}")]
+        public IActionResult UpdatePreference(int userId, [FromBody] UpdatePreferenceDto dto)
         {
+            // Önce mevcut preference'ı al
+            var existingResult = _preferenceService.GetPreference(userId);
+            
+            if (!existingResult.Success || existingResult.Data == null)
+            {
+                return NotFound(new { success = false, message = "Kullanıcı tercihleri bulunamadı." });
+            }
+
+            var preference = existingResult.Data;
+
+            // Partial update - sadece gönderilen alanları güncelle
+            if (dto.IsEnabled.HasValue)
+                preference.IsEnabled = dto.IsEnabled.Value;
+            
+            if (!string.IsNullOrEmpty(dto.PreferredLanguage))
+                preference.PreferredLanguage = dto.PreferredLanguage;
+
+            // Güncelle
             var result = _preferenceService.UpdatePreference(preference);
             if (result.Success)
                 return Ok(result);
@@ -48,9 +67,9 @@ namespace API.Controllers
 
         /// <summary>
         /// Onboarding'i tamamla
-        /// POST /api/UserAssistantPreference/complete-onboarding/{userId}
+        /// PUT /api/user-assistant-preference/{userId}/complete-onboarding
         /// </summary>
-        [HttpPost("complete-onboarding/{userId}")]
+        [HttpPut("{userId}/complete-onboarding")]
         public IActionResult CompleteOnboarding(int userId)
         {
             var result = _preferenceService.CompleteOnboarding(userId);
@@ -61,10 +80,10 @@ namespace API.Controllers
 
         /// <summary>
         /// Bot'u aç/kapat
-        /// POST /api/UserAssistantPreference/toggle/{userId}
+        /// PUT /api/user-assistant-preference/{userId}/toggle
         /// Body: { "isEnabled": true }
         /// </summary>
-        [HttpPost("toggle/{userId}")]
+        [HttpPut("{userId}/toggle")]
         public IActionResult ToggleBot(int userId, [FromBody] ToggleBotDto dto)
         {
             var result = _preferenceService.ToggleBot(userId, dto.IsEnabled);
@@ -75,10 +94,19 @@ namespace API.Controllers
     }
 
     /// <summary>
-    /// Toggle bot DTO (Body için)
+    /// Toggle bot DTO
     /// </summary>
     public class ToggleBotDto
     {
         public bool IsEnabled { get; set; }
+    }
+
+    /// <summary>
+    /// Update preference DTO (Partial Update için)
+    /// </summary>
+    public class UpdatePreferenceDto
+    {
+        public bool? IsEnabled { get; set; }
+        public string? PreferredLanguage { get; set; }
     }
 }

@@ -16,7 +16,7 @@ namespace Business.Abstract
         /// <summary>
         /// Tercihleri güncelle
         /// </summary>
-        IResult UpdatePreference(UserAssistantPreference preference);
+        IDataResult<UserAssistantPreference> UpdatePreference(UserAssistantPreference preference);
         
         /// <summary>
         /// Onboarding'i tamamla

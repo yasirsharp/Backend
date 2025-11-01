@@ -12,6 +12,6 @@ namespace Entity.DTOs
     {
         public int BolumId { get; set; }
         public string BolumAd { get; set; }
-        public List<AkademikPersonel> AtanmisPersoneller { get; set; }
+        public List<AkademikPersonelWithRelationship> AtanmisPersoneller { get; set; }
     }
 }

@@ -17,11 +17,12 @@ namespace DataAccess.Concrete.EntityFramework
                 var personelList = (from bap in context.BolumAkademikPersoneller
                                     join ap in context.AkademikPersonel on bap.AkademikPersonelId equals ap.Id
                                     where bap.BolumId == bolumId
-                                    select new AkademikPersonel
+                                    select new AkademikPersonelWithRelationship
                                     {
                                         Id = ap.Id,
                                         Ad = ap.Ad,
                                         Unvan = ap.Unvan,
+                                        RelationshipId = bap.Id
                                     }).ToList();
 
                 return new BolumAkademikPersonelListDTO

@@ -1,5 +1,6 @@
 using Core.DataAccess;
 using Entity.Concrete;
+using System.Collections.Generic;
 
 namespace DataAccess.Abstract
 {
@@ -8,6 +9,14 @@ namespace DataAccess.Abstract
     /// </summary>
     public interface IAnnouncementDal : IEntityRepository<Announcement>
     {
-        // Özel metodlar eklenebilir (örn: GetActiveAnnouncements)
+        /// <summary>
+        /// Bölüm bilgisi ile birlikte tüm duyuruları getirir
+        /// </summary>
+        List<Announcement> GetAllWithBolum();
+        
+        /// <summary>
+        /// Bölüm bilgisi ile birlikte ID'ye göre duyuru getirir
+        /// </summary>
+        Announcement GetByIdWithBolum(int id);
     }
 }
