@@ -18,11 +18,13 @@ namespace Business.Concrete
     {
         IDBAPDal _dbapDal;
         ISinavDetayService _sinavDetayService;
+        IAkademikPersonelService _akademikPersonelService;
 
-        public DBAPManager(IDBAPDal dbapDal, ISinavDetayService sinavDetayService)
+        public DBAPManager(IDBAPDal dbapDal, ISinavDetayService sinavDetayService, IAkademikPersonelService akademikPersonelService)
         {
             _dbapDal = dbapDal;
             _sinavDetayService = sinavDetayService;
+            _akademikPersonelService = akademikPersonelService;
         }
 
         public IResult Add(DersBolumAkademikPersonel dersBolumAkademikPersonel)
@@ -111,6 +113,35 @@ namespace Business.Concrete
                 return result == null
                     ? new SuccessDataResult<List<DersBolumAkademikPersonelDTO>>(result, "Veri bulunamadı sınav eklemeyi deneyin")
                     : new SuccessDataResult<List<DersBolumAkademikPersonelDTO>>(result);
+            }
+            catch (Exception err)
+            {
+                return new ErrorDataResult<List<DersBolumAkademikPersonelDTO>>(Messages.SomethingWrong + " " + err.Message);
+            }
+        }
+
+        public IDataResult<List<DersBolumAkademikPersonelDTO>> GetMyCoursesForUser(int userId)
+        {
+            try
+            {
+                // UserId → AkademikPersonelId mapping
+                var personelResult = _akademikPersonelService.GetByUserId(userId);
+                if (!personelResult.Success || personelResult.Data == null)
+                {
+                    return new ErrorDataResult<List<DersBolumAkademikPersonelDTO>>(Messages.AkademikPersonelNotFoundForUser);
+                }
+
+                // Bu personelin DBAP kayıtlarını getir
+                var result = _dbapDal.GetDetails(q => q.AkademikPersonelId == personelResult.Data.Id);
+                if (result == null || !result.Any())
+                {
+                    return new SuccessDataResult<List<DersBolumAkademikPersonelDTO>>(
+                        new List<DersBolumAkademikPersonelDTO>(),
+                        "Henüz ders ataması bulunmuyor."
+                    );
+                }
+
+                return new SuccessDataResult<List<DersBolumAkademikPersonelDTO>>(result, $"{result.Count} ders bulundu.");
             }
             catch (Exception err)
             {

@@ -50,6 +50,17 @@ namespace Business.Concrete
             return new SuccessDataResult<Bolum>(_bolumDal.Get(p => p.Id == bolumId));
         }
 
+        IDataResult<List<Bolum>> IBolumService.GetByIds(List<int> bolumIds)
+        {
+            if (bolumIds == null || bolumIds.Count == 0)
+            {
+                return new ErrorDataResult<List<Bolum>>(new List<Bolum>(), "Bölüm ID listesi boş olamaz.");
+            }
+
+            var bolumler = _bolumDal.GetAll(b => bolumIds.Contains(b.Id));
+            return new SuccessDataResult<List<Bolum>>(bolumler, $"{bolumler.Count} bölüm bulundu.");
+        }
+
         IDataResult<List<Bolum>> IBolumService.GetList()
         {
             return new SuccessDataResult<List<Bolum>>(_bolumDal.GetAll(), $"{_bolumDal.GetAll().Count} tane bulundu.");

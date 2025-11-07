@@ -12,6 +12,7 @@ namespace Business.Abstract
         IDataResult<List<DersBolumAkademikPersonel>> GetByBolumId(int bolumId);
         IDataResult<List<DersBolumAkademikPersonelDTO>> GetAllDetails();
         IDataResult<List<DersBolumAkademikPersonelDTO>> GetDetailsByBolumId(int bolumId);
+        IDataResult<List<DersBolumAkademikPersonelDTO>> GetMyCoursesForUser(int userId);
         IDataResult<DersBolumAkademikPersonelDTO> GetDetail(int dbapId);
         IDataResult<DersBolumAkademikPersonel> GetById(int dbapId);
         IResult Add(DersBolumAkademikPersonel dersBolumAkademikPersonel);

@@ -23,6 +23,9 @@ namespace DataAccess.Concrete.EntityFramework
         public DbSet<DersBolum> DersBolum { get; set; }
         public DbSet<DerslikBolum> DerslikBolum { get; set; }
         
+        // Ogrenci System
+        public DbSet<Ogrenci> Ogrenci { get; set; }
+        
         // Notification System
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Announcement> Announcements { get; set; }

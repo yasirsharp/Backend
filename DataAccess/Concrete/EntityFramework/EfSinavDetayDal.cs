@@ -754,7 +754,11 @@ namespace DataAccess.Concrete.EntityFramework
                                     .ToList()
                              };
 
-                return result.Distinct().ToList();
+                // Distinct yerine GroupBy kullanarak duplicate'leri kaldır
+                return result
+                    .GroupBy(x => x.Id)
+                    .Select(g => g.First())
+                    .ToList();
             }
         }
     }

@@ -46,5 +46,47 @@ namespace API.Controllers
 
             return BadRequest(result);
         }
+
+        /// <summary>
+        /// TEST için öğrenci kayıt endpoint'i
+        /// </summary>
+        [HttpPost("register-ogrenci")]
+        public IActionResult RegisterOgrenci(OgrenciRegisterDto ogrenciRegisterDto)
+        {
+            var userExists = _authService.UserExists(ogrenciRegisterDto.Email);
+            if (!userExists.Success)
+                return BadRequest(userExists);
+
+            var registerResult = _authService.RegisterOgrenci(ogrenciRegisterDto);
+            if (!registerResult.Success)
+                return BadRequest(registerResult);
+
+            var result = _authService.CreateAccessToken(registerResult.Data);
+            if (result.Success)
+                return Ok(result);
+
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// TEST için akademik personel kayıt endpoint'i
+        /// </summary>
+        [HttpPost("register-akademik-personel")]
+        public IActionResult RegisterAkademikPersonel(AkademikPersonelRegisterDto akademikPersonelRegisterDto)
+        {
+            var userExists = _authService.UserExists(akademikPersonelRegisterDto.Email);
+            if (!userExists.Success)
+                return BadRequest(userExists);
+
+            var registerResult = _authService.RegisterAkademikPersonel(akademikPersonelRegisterDto);
+            if (!registerResult.Success)
+                return BadRequest(registerResult);
+
+            var result = _authService.CreateAccessToken(registerResult.Data);
+            if (result.Success)
+                return Ok(result);
+
+            return BadRequest(result);
+        }
     }
 } 

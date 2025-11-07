@@ -12,6 +12,9 @@ namespace Business.Constants
         public static string AkademikPersonelAdded = "Akademik Personel Eklendi.";
         public static string AkademikPersonelUpdated = "Akademik Personel Güncellendi.";
         public static string AkademikPersonelDeleted = "Akademik Personel Silindi.";
+        public static string AkademikPersonelNotFound = "Akademik Personel bulunamadı.";
+        public static string AkademikPersonelNotFoundForUser = "Bu kullanıcıya ait akademik personel kaydı bulunamadı.";
+        public static string AkademikPersonelFound = "Akademik Personel bulundu.";
 
         public static string BolumAdded = "Bölüm Eklendi.";
         public static string BolumDeleted = "Bölüm Silindi.";
@@ -33,12 +36,18 @@ namespace Business.Constants
         public static string DerslikDeleted = "Derslik Silindi.";
         public static string DerslikUpdated = "Derslik Güncellendi.";
 
+        public static string OgrenciAdded = "Öğrenci Eklendi.";
+        public static string OgrenciDeleted = "Öğrenci Silindi.";
+        public static string OgrenciUpdated = "Öğrenci Güncellendi.";
+        public static string OgrenciNotFound = "Öğrenci bulunamadı.";
+
 
         public static string SomethingWrong = "Bir şeyler yanlış gidiyor. @?!!#";
 
         public static string SinavDetayAdded ="Sinav Detay Eşleştirmesi eklendi.";
         public static string SinavDetayDeleted ="Sinav Detay Eşleştirmesi silindi.";
         public static string SinavDetayUpdated ="Sinav Detay Eşleştirmesi güncellendi.";
+        public static string SinavDetayNotFound ="Sınav kaydı bulunamadı.";
 
         public static string SinavDerslikAdded ="Sinav Derslik Eşleştirmesi eklendi.";
         public static string SinavDerslikDeleted = "Sinav Derslik Eşleştirmesi silindi.";
@@ -64,8 +73,6 @@ namespace Business.Constants
         public static string UserOperationClaimDeleted = "Kullanıcı yetkisi başarıyla silindi.";
         public static string UserOperationClaimListed = "Kullanıcı yetkileri listelendi.";
         public static string UserOperationClaimUpdated = "Kullanıcı yetkisi başarıyla güncellendi.";
-
-        public static string AkademikPersonelNotFound = "Akademik Personel bulunamadı.";
 
         public static string AuthorizationDenied = "Yetkiniz Yok!!!";
 

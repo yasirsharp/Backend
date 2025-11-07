@@ -129,6 +129,22 @@ namespace API.Controllers
                 return Ok(result);
             return BadRequest(result);
         }
+
+        [HttpGet("my-exams")]
+        public IActionResult GetMyExams([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+        {
+            // Token'dan userId'yi al
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                return Unauthorized(new { message = "Kullanıcı kimliği bulunamadı." });
+            }
+
+            var result = _sinavDetayService.GetMyExamsForUser(userId, startDate, endDate);
+            if (result.Success)
+                return Ok(result);
+            return NotFound(result);
+        }
         
         [HttpGet("derslikler")]
         public IActionResult GetByDerslikler([FromQuery] int[] ids)

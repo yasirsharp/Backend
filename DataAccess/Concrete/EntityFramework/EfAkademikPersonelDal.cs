@@ -17,6 +17,53 @@ namespace DataAccess.Concrete.EntityFramework
 {
     public class EfAkademikPersonelDal : EfEntityRepositoryBase<AkademikPersonel, DuzceUniversiteContext>, IAkademikPersonelDal
     {
+        /// <summary>
+        /// DAL LAYER - Sadece transaction yönetimi yapar, iş kuralları YOK!
+        /// Business layer'dan HAZIR nesneler alır ve tek transaction içinde kaydeder.
+        /// </summary>
+        public async Task AddAkademikPersonelWithUserOperationClaimAsync(
+            User user, 
+            AkademikPersonel akademikPersonel, 
+            UserOperationClaim userOperationClaim)
+        {
+            using (var context = new DuzceUniversiteContext())
+            {
+                using (var transaction = await context.Database.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        // 1. User ekle (ID oluşsun)
+                        context.Users.Add(user);
+                        await context.SaveChangesAsync();
+
+                        // 2. AkademikPersonel'e UserId ata ve ekle
+                        akademikPersonel.UserId = user.Id;
+                        context.AkademikPersonel.Add(akademikPersonel);
+                        await context.SaveChangesAsync();
+
+                        // 3. UserOperationClaim'e UserId ata ve ekle
+                        userOperationClaim.UserId = user.Id;
+                        context.UserOperationClaims.Add(userOperationClaim);
+                        await context.SaveChangesAsync();
+
+                        // 4. Commit - Tüm işlemler başarılı
+                        await transaction.CommitAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        // Rollback - Hata durumunda geri al
+                        await transaction.RollbackAsync();
+                        throw new Exception("Akademik personel kaydı sırasında hata: " + ex.Message, ex);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// DEPRECATED - AdminPanel için eski metod (iş kuralları içeriyor - YANLIŞ MİMARİ!)
+        /// Geriye dönük uyumluluk için bırakıldı.
+        /// </summary>
+        [Obsolete("Bu metod iş kuralları içeriyor. AddAkademikPersonelWithUserOperationClaimAsync kullanın.")]
         public async void AddAkademikPersonelWithUserOperationClaim(AkademikPersonel akademikPersonel)
         {
             using (var context = new DuzceUniversiteContext())
@@ -84,6 +131,43 @@ namespace DataAccess.Concrete.EntityFramework
         }
 
 
+        /// <summary>
+        /// YENİ - Doğru mimari: Business layer'dan HAZIR User ve AkademikPersonel nesneleri alır
+        /// </summary>
+        public async Task UpdateAkademikPersonelWithUserOperationClaimAsync(
+            User user, 
+            AkademikPersonel akademikPersonel)
+        {
+            using (var context = new DuzceUniversiteContext())
+            {
+                using (var transaction = await context.Database.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        // 1. AkademikPersonel güncelle
+                        context.AkademikPersonel.Update(akademikPersonel);
+                        await context.SaveChangesAsync();
+
+                        // 2. User güncelle
+                        context.Users.Update(user);
+                        await context.SaveChangesAsync();
+
+                        // 3. Commit
+                        await transaction.CommitAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        throw new Exception("Akademik personel güncelleme sırasında hata: " + ex.Message, ex);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// DEPRECATED - AdminPanel için eski metod (iş kuralları içeriyor)
+        /// </summary>
+        [Obsolete("Bu metod iş kuralları içeriyor. UpdateAkademikPersonelWithUserOperationClaimAsync kullanın.")]
         public async void UpdateAkademikPersonelWithUserOperationClaim(AkademikPersonel akademikPersonel)
         {
             using (var context = new DuzceUniversiteContext())
@@ -127,6 +211,54 @@ namespace DataAccess.Concrete.EntityFramework
         }
 
 
+        /// <summary>
+        /// YENİ - Doğru mimari: Sadece transaction yönetimi, iş kuralları YOK
+        /// </summary>
+        public async Task DeleteAkademikPersonelWithUserOperationClaimAsync(AkademikPersonel akademikPersonel)
+        {
+            using (var context = new DuzceUniversiteContext())
+            {
+                using (var transaction = await context.Database.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        // 1. UserOperationClaims sil
+                        var userOperationClaims = await context.UserOperationClaims
+                            .Where(uoc => uoc.UserId == akademikPersonel.UserId)
+                            .ToListAsync();
+                        context.UserOperationClaims.RemoveRange(userOperationClaims);
+
+                        // 2. AkademikPersonel sil
+                        var akademikPersonelToDelete = await context.AkademikPersonel
+                            .FirstOrDefaultAsync(ap => ap.Id == akademikPersonel.Id);
+                        if (akademikPersonelToDelete != null)
+                        {
+                            context.AkademikPersonel.Remove(akademikPersonelToDelete);
+                        }
+
+                        // 3. User sil
+                        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == akademikPersonel.UserId);
+                        if (user != null)
+                        {
+                            context.Users.Remove(user);
+                        }
+
+                        await context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        throw new Exception("Akademik personel silme sırasında hata: " + ex.Message, ex);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// DEPRECATED - AdminPanel için eski metod
+        /// </summary>
+        [Obsolete("Bu metod eski. DeleteAkademikPersonelWithUserOperationClaimAsync kullanın.")]
         public async void DeleteAkademikPersonelWithUserOperationClaim(AkademikPersonel akademikPersonel)
         {
             using (var context = new DuzceUniversiteContext())

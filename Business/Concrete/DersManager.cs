@@ -107,6 +107,7 @@ namespace Business.Concrete
                 {
                     DersId = ders.Id,
                     DersAd = ders.Ad,
+                    Kod = ders.Kod,
                     OrtakDers = dersBolumler.Count == 0, // Eğer hiç bölüm ilişkisi yoksa ortak ders
                     Bolumler = new List<BolumInfo>()
                 };
@@ -209,6 +210,42 @@ namespace Business.Concrete
                 result,
                 $"{result.TotalCount} ders bulundu."
             );
+        }
+
+        public IResult RemoveDersBolumMapping(int dersId, int bolumId)
+        {
+            // 1. DersBolum eşleştirmesini bul
+            var dersBolum = _dersBolumDal.Get(db => db.DersId == dersId && db.BolumId == bolumId);
+            if (dersBolum == null)
+            {
+                return new ErrorResult("Ders-Bölüm eşleştirmesi bulunamadı.");
+            }
+
+            // 2. Eşleştirmeyi sil
+            _dersBolumDal.Delete(dersBolum);
+
+            // 3. Bu dersin başka bölümlerle eşleştirmesi var mı kontrol et
+            var remainingMappings = _dersBolumDal.GetByDersId(dersId);
+            
+            // 4. Eğer başka eşleştirme yoksa, dersi de sil
+            if (remainingMappings.Count == 0)
+            {
+                var ders = _dersDal.Get(d => d.Id == dersId);
+                if (ders != null)
+                {
+                    // DBAP kontrolü yap
+                    var dbap = _dBAPDal.GetDetails(q => q.DersId == ders.Id);
+                    if (dbap.Count > 0)
+                    {
+                        return new ErrorResult($"Bu ders için {dbap.Count} tane Bölüm-Ders-Akademik Personel eşleştirmesi bulunmaktadır. Önce bu eşleştirmeleri silmelisiniz.");
+                    }
+                    
+                    _dersDal.Delete(ders);
+                    return new SuccessResult($"Ders-Bölüm eşleştirmesi ve ders başarıyla silindi.");
+                }
+            }
+
+            return new SuccessResult("Ders-Bölüm eşleştirmesi başarıyla silindi.");
         }
     }
 }

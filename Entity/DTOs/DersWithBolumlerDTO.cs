@@ -10,7 +10,8 @@ namespace Entity.DTOs
     public class DersWithBolumlerDTO : IDto
     {
         public int DersId { get; set; }
-        public string DersAd { get; set; }
+        public string DersAd { get; set; } = string.Empty;
+        public string? Kod { get; set; }
         public bool OrtakDers { get; set; }
         public List<BolumInfo> Bolumler { get; set; } = new List<BolumInfo>();
     }
@@ -18,6 +19,6 @@ namespace Entity.DTOs
     public class BolumInfo
     {
         public int BolumId { get; set; }
-        public string BolumAd { get; set; }
+        public string BolumAd { get; set; } = string.Empty;
     }
 }

@@ -23,5 +23,6 @@ namespace Business.Abstract
         IDataResult<List<DersWithBolumlerDTO>> GetAllWithBolumler();
         IDataResult<bool> IsKodUnique(string kod, int? excludeDersId = null);
         IDataResult<PagedResult<Ders>> GetPagedList(PaginationParams paginationParams);
+        IResult RemoveDersBolumMapping(int dersId, int bolumId);
     }
 }

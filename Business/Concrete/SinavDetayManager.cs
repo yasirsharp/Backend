@@ -18,10 +18,12 @@ namespace Business.Concrete
     public class SinavDetayManager : ISinavDetayService
     {
         ISinavDetayDal _sinavDetayDal;
+        IAkademikPersonelService _akademikPersonelService;
 
-        public SinavDetayManager(ISinavDetayDal sinavDetayDal)
+        public SinavDetayManager(ISinavDetayDal sinavDetayDal, IAkademikPersonelService akademikPersonelService)
         {
             _sinavDetayDal = sinavDetayDal;
+            _akademikPersonelService = akademikPersonelService;
         }
         public IDataResult<List<SinavDetayDTO>> GetByDerslikler(int[] derslikIds)
         {
@@ -107,6 +109,39 @@ namespace Business.Concrete
             {
                 var result = _sinavDetayDal.GetSinavDetailsByDateRangeAndAkademikPersonel(startDate, endDate, akademikPersonelId);
                 return new SuccessDataResult<List<SinavDetayDTO>>(result, $"{result.Count} tane sonuç bulundu.");
+            }
+            catch (Exception ex)
+            {
+                return new ErrorDataResult<List<SinavDetayDTO>>(ex.Message);
+            }
+        }
+
+        public IDataResult<List<SinavDetayDTO>> GetMyExamsForUser(int userId, DateTime? startDate = null, DateTime? endDate = null)
+        {
+            try
+            {
+                // UserId'den AkademikPersonel kaydını bul
+                var personelResult = _akademikPersonelService.GetByUserId(userId);
+                if (!personelResult.Success)
+                {
+                    return new ErrorDataResult<List<SinavDetayDTO>>(personelResult.Message);
+                }
+
+                var personelId = personelResult.Data.Id;
+
+                // Tarih aralığı belirtilmemişse, varsayılan olarak bugünden itibaren +/- 3 ay kullan
+                DateTime effectiveStartDate = startDate ?? DateTime.Now.AddMonths(-3);
+                DateTime effectiveEndDate = endDate ?? DateTime.Now.AddMonths(3);
+
+                // Personele ait sınavları tarih aralığında getir
+                var result = _sinavDetayDal.GetSinavDetailsByDateRangeAndAkademikPersonel(effectiveStartDate, effectiveEndDate, personelId);
+                
+                if (result == null || result.Count == 0)
+                {
+                    return new SuccessDataResult<List<SinavDetayDTO>>(new List<SinavDetayDTO>(), Messages.SinavDetayNotFound);
+                }
+
+                return new SuccessDataResult<List<SinavDetayDTO>>(result, $"{result.Count} tane sınav bulundu.");
             }
             catch (Exception ex)
             {

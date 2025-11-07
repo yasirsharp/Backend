@@ -61,6 +61,30 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
+        /// <summary>
+        /// Belirli bir bölüme ait dersleri getirir (GorevliLayout için)
+        /// </summary>
+        [HttpGet("bolum/{bolumId}")]
+        public IActionResult GetByBolumId(int bolumId)
+        {
+            // Bölüme ait tüm DBAP kayıtlarından ders ID'lerini çek
+            // Bu işlem için service layer'da yeni metod gerekebilir
+            // Şimdilik DersWithBolumler'i kullanabiliriz
+            var allDersler = _dersService.GetAllWithBolumler();
+            if (!allDersler.Success)
+                return BadRequest(allDersler);
+
+            // BolumId'ye göre filtrele
+            var filteredDersler = allDersler.Data
+                .Where(d => d.Bolumler.Any(b => b.BolumId == bolumId))
+                .ToList();
+
+            return Ok(new Core.Utilities.Results.SuccessDataResult<List<DersWithBolumlerDTO>>(
+                filteredDersler,
+                $"{filteredDersler.Count} ders bulundu."
+            ));
+        }
+
         [HttpPost]
         public IActionResult Add(Ders ders)
         {
@@ -123,6 +147,18 @@ namespace API.Controllers
         public IActionResult CheckKodUnique([FromQuery] string kod, [FromQuery] int? excludeDersId = null)
         {
             var result = _dersService.IsKodUnique(kod, excludeDersId);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Ders-Bölüm eşleştirmesini siler. Eğer son eşleştirme ise dersi de siler.
+        /// </summary>
+        [HttpDelete("remove-bolum-mapping/{dersId}/{bolumId}")]
+        public IActionResult RemoveDersBolumMapping(int dersId, int bolumId)
+        {
+            var result = _dersService.RemoveDersBolumMapping(dersId, bolumId);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

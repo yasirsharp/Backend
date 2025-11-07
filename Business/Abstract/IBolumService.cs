@@ -13,6 +13,12 @@ namespace Business.Abstract
     {
         IDataResult<List<Bolum>> GetList();
         IDataResult<Bolum> GetById(int bolumId);
+        
+        /// <summary>
+        /// Birden fazla bölüm ID'sine göre bölümleri getirir
+        /// </summary>
+        IDataResult<List<Bolum>> GetByIds(List<int> bolumIds);
+        
         IResult Add(Bolum bolum);
         IResult Delete(Bolum bolum);
         IResult Update(Bolum bolum);

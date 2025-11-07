@@ -22,6 +22,7 @@ namespace Business.Abstract
         IDataResult<List<SinavDetayDTO>> GetByDateRangeAndBolum(DateTime startDate, DateTime endDate, int bolumId);
         IDataResult<List<SinavDetayDTO>> GetByDateRangeAndDerslik(DateTime startDate, DateTime endDate, int derslikId);
         IDataResult<List<SinavDetayDTO>> GetByDateRangeAndAkademikPersonel(DateTime startDate, DateTime endDate, int akademikPersonelId);
+        IDataResult<List<SinavDetayDTO>> GetMyExamsForUser(int userId, DateTime? startDate = null, DateTime? endDate = null);
         IResult Add(SinavKayitDTO sinavKayitDTO);
         IResult Delete(SinavDetay sinavDetay);
         IResult Update(SinavGuncelleDTO sinavGuncelleDTO);

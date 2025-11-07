@@ -5,7 +5,7 @@ using Entity.Concrete;
 
 namespace API.Controllers
 {
-    [Route("api/dersbolumakademikpersoneller")]
+    [Route("api/dbap")]
     [ApiController]
     public class DBAPController : ControllerBase
     {
@@ -119,6 +119,22 @@ namespace API.Controllers
                 return NotFound(new { Success = false, Message = "DBAP kaydı bulunamadı" });
 
             var result = _dbapService.Delete(dbap);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        [HttpGet("my-courses")]
+        public IActionResult GetMyCourses()
+        {
+            // Token'dan UserId al
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { Success = false, Message = "Kullanıcı kimliği alınamadı" });
+            }
+
+            var result = _dbapService.GetMyCoursesForUser(userId);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

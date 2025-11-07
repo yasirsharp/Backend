@@ -14,6 +14,7 @@ namespace Business.Abstract
     {
         IDataResult<List<AkademikPersonel>> GetList(Expression<Func<AkademikPersonel, bool>> filter = null);
         IDataResult<AkademikPersonel> GetById(int akademikPeronelId);
+        IDataResult<AkademikPersonel> GetByUserId(int userId);
         IResult Add(AkademikPersonel akademikPersonel);
         IResult Delete(AkademikPersonel akademikPersonel);
         IResult Update(AkademikPersonel akademikPersonel);

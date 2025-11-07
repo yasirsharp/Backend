@@ -65,6 +65,33 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
+        /// <summary>
+        /// Birden fazla bölüm ID'sine göre bölümleri getirir
+        /// </summary>
+        /// <param name="ids">Virgülle ayrılmış bölüm ID'leri (örn: 1,2,3)</param>
+        [HttpGet("list")]
+        public IActionResult GetByIds([FromQuery] string ids)
+        {
+            if (string.IsNullOrWhiteSpace(ids))
+            {
+                return BadRequest(new { Success = false, Message = "Bölüm ID'leri boş olamaz" });
+            }
+
+            try
+            {
+                var idList = ids.Split(',').Select(int.Parse).ToList();
+                var result = _bolumService.GetByIds(idList);
+                
+                if (result.Success)
+                    return Ok(result);
+                return BadRequest(result);
+            }
+            catch (FormatException)
+            {
+                return BadRequest(new { Success = false, Message = "Geçersiz bölüm ID formatı" });
+            }
+        }
+
         [HttpPost]
         public IActionResult Add(Bolum bolum)
         {

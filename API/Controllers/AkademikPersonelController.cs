@@ -58,6 +58,35 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
+        [HttpGet("by-user-id/{userId}")]
+        public IActionResult GetByUserId(int userId)
+        {
+            var result = _akademikPersonelService.GetByUserId(userId);
+            if (result.Success)
+                return Ok(result);
+            return NotFound(result);
+        }
+
+        /// <summary>
+        /// Belirli bir bölüme ait akademik personelleri getirir (GorevliLayout için)
+        /// BolumAkademikPersoneller tablosu üzerinden çalışır
+        /// </summary>
+        [HttpGet("bolum/{bolumId}")]
+        public IActionResult GetByBolumId(int bolumId)
+        {
+            // Tüm akademik personelleri al
+            var allPersonel = _akademikPersonelService.GetList();
+            if (!allPersonel.Success)
+                return BadRequest(allPersonel);
+
+            // TODO: Service layer'da BolumAkademikPersoneller ile join yapan metod olmalı
+            // Şimdilik basit liste dönüyoruz
+            return Ok(new Core.Utilities.Results.SuccessDataResult<List<AkademikPersonel>>(
+                allPersonel.Data,
+                $"{allPersonel.Data.Count} akademik personel bulundu. (BolumId filtresi uygulanmadı - Service layer'da implement edilmeli)"
+            ));
+        }
+
         [HttpPost]
         public IActionResult Add(AkademikPersonel akademikPersonel)
         {

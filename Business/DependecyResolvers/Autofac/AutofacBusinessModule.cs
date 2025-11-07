@@ -38,6 +38,9 @@ namespace Business.DependecyResolvers.Autofac
             builder.RegisterType<DerslikManager>().As<IDerslikService>();
             builder.RegisterType<DerslikDal>().As<IDerslikDal>();
 
+            builder.RegisterType<OgrenciManager>().As<IOgrenciService>();
+            builder.RegisterType<EfOgrenciDal>().As<IOgrenciDal>();
+
             builder.RegisterType<EfUserDal>().As<IUserDal>();
             builder.RegisterType<UserManager>().As<IUserService>();
 
