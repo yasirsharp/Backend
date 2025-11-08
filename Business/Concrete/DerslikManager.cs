@@ -100,7 +100,8 @@ namespace Business.Concrete
                     DerslikAd = derslik.Ad,
                     Kapasite = derslik.Kapasite,
                     OrtakDerslik = derslikBolumler.Count == 0, // Eğer hiç bölüm ilişkisi yoksa ortak derslik
-                    Bolumler = new List<BolumInfo>()
+                    Bolumler = new List<BolumInfo>(),
+                    Status = derslik.Status
                 };
 
                 if (derslikBolumler.Count > 0)

@@ -13,6 +13,7 @@ namespace Entity.DTOs
         public string DerslikAd { get; set; } = null!;
         public int Kapasite { get; set; }
         public bool OrtakDerslik { get; set; }
+        public bool Status { get; set; }
         public List<BolumInfo> Bolumler { get; set; } = new List<BolumInfo>();
     }
 }
