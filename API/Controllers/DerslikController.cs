@@ -201,5 +201,41 @@ namespace API.Controllers
                 return Ok(result);
             return BadRequest(result);
         }
+
+        /// <summary>
+        /// Belirli bir bölüme ait derslikleri getir (bolumId=0 ise ortak derslikler)
+        /// </summary>
+        [HttpGet("by-bolum/{bolumId}")]
+        public IActionResult GetByBolumId(int bolumId)
+        {
+            var result = _derslikService.GetDersliklerByBolumId(bolumId);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Ortak derslikleri getir (birden fazla bölüme ait veya hiçbir bölüme atanmamış)
+        /// </summary>
+        [HttpGet("ortak")]
+        public IActionResult GetOrtakDerslikler()
+        {
+            var result = _derslikService.GetOrtakDerslikler();
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Görevlinin bölümlerine ait derslikleri getir (ortak derslikler hariç)
+        /// </summary>
+        [HttpGet("by-bolumler")]
+        public IActionResult GetByBolumIds([FromQuery] int[] bolumIds)
+        {
+            var result = _derslikService.GetDersliklerByBolumIds(bolumIds);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
     }
 } 

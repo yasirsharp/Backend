@@ -220,5 +220,137 @@ namespace Business.Concrete
 
             return new SuccessResult($"Derslik bu bölümden kaldırıldı. Hala {remainingRelations.Count} bölümle ilişkili.");
         }
+
+        public IDataResult<List<DerslikWithBolumlerDTO>> GetDersliklerByBolumId(int bolumId)
+        {
+            // bolumId = 0 ise ortak derslikleri getir
+            if (bolumId == 0)
+            {
+                return GetOrtakDerslikler();
+            }
+
+            // Belirtilen bölüme ait derslikleri getir
+            var derslikBolumler = _derslikBolumDal.GetAll(db => db.BolumId == bolumId);
+            var derslikIds = derslikBolumler.Select(db => db.DerslikId).ToList();
+            var derslikler = _derslikDal.GetAll(d => derslikIds.Contains(d.Id));
+
+            var result = new List<DerslikWithBolumlerDTO>();
+
+            foreach (var derslik in derslikler)
+            {
+                var allDerslikBolumler = _derslikBolumDal.GetByDerslikId(derslik.Id);
+                
+                var derslikDto = new DerslikWithBolumlerDTO
+                {
+                    DerslikId = derslik.Id,
+                    DerslikAd = derslik.Ad,
+                    Kapasite = derslik.Kapasite,
+                    OrtakDerslik = allDerslikBolumler.Count > 1,
+                    Bolumler = new List<BolumInfo>(),
+                    Status = derslik.Status
+                };
+
+                using (var context = new DuzceUniversiteContext())
+                {
+                    foreach (var derslikBolum in allDerslikBolumler)
+                    {
+                        var bolum = context.Bolum.FirstOrDefault(b => b.Id == derslikBolum.BolumId);
+                        if (bolum != null)
+                        {
+                            derslikDto.Bolumler.Add(new BolumInfo
+                            {
+                                BolumId = bolum.Id,
+                                BolumAd = bolum.Ad
+                            });
+                        }
+                    }
+                }
+
+                result.Add(derslikDto);
+            }
+
+            return new SuccessDataResult<List<DerslikWithBolumlerDTO>>(result, $"{result.Count} derslik bulundu.");
+        }
+
+        public IDataResult<List<DerslikWithBolumlerDTO>> GetOrtakDerslikler()
+        {
+            // Hiçbir bölümle ilişkili olmayan derslikleri getir
+            var allDerslikler = _derslikDal.GetAll();
+            var result = new List<DerslikWithBolumlerDTO>();
+
+            foreach (var derslik in allDerslikler)
+            {
+                var derslikBolumler = _derslikBolumDal.GetByDerslikId(derslik.Id);
+                
+                // Hiçbir bölümle ilişkili değilse ortak derslik
+                if (derslikBolumler.Count == 0)
+                {
+                    var derslikDto = new DerslikWithBolumlerDTO
+                    {
+                        DerslikId = derslik.Id,
+                        DerslikAd = derslik.Ad,
+                        Kapasite = derslik.Kapasite,
+                        OrtakDerslik = true,
+                        Bolumler = new List<BolumInfo>(),
+                        Status = derslik.Status
+                    };
+
+                    result.Add(derslikDto);
+                }
+            }
+
+            return new SuccessDataResult<List<DerslikWithBolumlerDTO>>(result, $"{result.Count} ortak derslik bulundu.");
+        }
+
+        public IDataResult<List<DerslikWithBolumlerDTO>> GetDersliklerByBolumIds(int[] bolumIds)
+        {
+            if (bolumIds == null || bolumIds.Length == 0)
+            {
+                return new ErrorDataResult<List<DerslikWithBolumlerDTO>>("Bölüm ID'leri boş olamaz.");
+            }
+
+            // Belirtilen bölümlere ait derslikleri getir (ortak derslikler hariç)
+            var derslikBolumler = _derslikBolumDal.GetAll(db => bolumIds.Contains(db.BolumId));
+            var derslikIds = derslikBolumler.Select(db => db.DerslikId).Distinct().ToList();
+            var derslikler = _derslikDal.GetAll(d => derslikIds.Contains(d.Id));
+
+            var result = new List<DerslikWithBolumlerDTO>();
+
+            foreach (var derslik in derslikler)
+            {
+                var allDerslikBolumler = _derslikBolumDal.GetByDerslikId(derslik.Id);
+                
+                // Tüm bölümlere ait derslikleri al (ortak derslikler hariç tutulacak - zaten junction table'da yoklar)
+                var derslikDto = new DerslikWithBolumlerDTO
+                {
+                    DerslikId = derslik.Id,
+                    DerslikAd = derslik.Ad,
+                    Kapasite = derslik.Kapasite,
+                    OrtakDerslik = false,
+                    Bolumler = new List<BolumInfo>(),
+                    Status = derslik.Status
+                };
+
+                using (var context = new DuzceUniversiteContext())
+                {
+                    foreach (var derslikBolum in allDerslikBolumler)
+                    {
+                        var bolum = context.Bolum.FirstOrDefault(b => b.Id == derslikBolum.BolumId);
+                        if (bolum != null)
+                        {
+                            derslikDto.Bolumler.Add(new BolumInfo
+                            {
+                                BolumId = bolum.Id,
+                                BolumAd = bolum.Ad
+                            });
+                        }
+                    }
+                }
+
+                result.Add(derslikDto);
+            }
+
+            return new SuccessDataResult<List<DerslikWithBolumlerDTO>>(result, $"{result.Count} derslik bulundu.");
+        }
     }
 }

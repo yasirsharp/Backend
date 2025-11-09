@@ -23,5 +23,8 @@ namespace Business.Abstract
         IDataResult<List<DerslikWithBolumlerDTO>> GetAllWithBolumler();
         IDataResult<PagedResult<Derslik>> GetPagedList(PaginationParams paginationParams);
         IResult RemoveDerslikFromBolum(int derslikId, int bolumId);
+        IDataResult<List<DerslikWithBolumlerDTO>> GetDersliklerByBolumId(int bolumId);
+        IDataResult<List<DerslikWithBolumlerDTO>> GetOrtakDerslikler();
+        IDataResult<List<DerslikWithBolumlerDTO>> GetDersliklerByBolumIds(int[] bolumIds);
     }
 }
