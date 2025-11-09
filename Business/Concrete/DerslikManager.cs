@@ -62,7 +62,10 @@ namespace Business.Concrete
             var derslik = new Derslik
             {
                 Ad = derslikEkleDto.Ad,
-                Kapasite = derslikEkleDto.Kapasite
+                Kapasite = derslikEkleDto.Kapasite,
+                Status = derslikEkleDto.Status,
+                CreatedDate = DateTime.Now,
+                UpdatedDate = DateTime.Now
             };
             _derslikDal.Add(derslik);
 
@@ -75,7 +78,9 @@ namespace Business.Concrete
                     {
                         DerslikId = derslik.Id,
                         BolumId = bolumId,
-                        CreatedDate = DateTime.Now
+                        CreatedDate = DateTime.Now,
+                        Status = true,
+                        UpdatedDate = DateTime.Now
                     };
                     _derslikBolumDal.Add(derslikBolum);
                 }
@@ -136,7 +141,9 @@ namespace Business.Concrete
             {
                 Id = derslikGuncelleDto.Id,
                 Ad = derslikGuncelleDto.Ad,
-                Kapasite = derslikGuncelleDto.Kapasite
+                Kapasite = derslikGuncelleDto.Kapasite,
+                Status = derslikGuncelleDto.Status,
+                UpdatedDate = DateTime.Now
             };
             _derslikDal.Update(derslik);
 
@@ -148,7 +155,7 @@ namespace Business.Concrete
             }
 
             // 3. Eğer ortak derslik değilse, yeni bölüm ilişkilerini oluştur
-            if (!derslikGuncelleDto.OrtakDerslik && derslikGuncelleDto.BolumIds != null && derslikGuncelleDto.BolumIds.Count > 0)
+            if (derslikGuncelleDto.BolumIds != null && derslikGuncelleDto.BolumIds.Count > 0)
             {
                 foreach (var bolumId in derslikGuncelleDto.BolumIds)
                 {
@@ -156,7 +163,9 @@ namespace Business.Concrete
                     {
                         DerslikId = derslikGuncelleDto.Id,
                         BolumId = bolumId,
-                        CreatedDate = DateTime.Now
+                        CreatedDate = DateTime.Now,
+                        UpdatedDate =DateTime.Now,
+                        Status = true
                     };
                     _derslikBolumDal.Add(derslikBolum);
                 }
@@ -186,6 +195,30 @@ namespace Business.Concrete
                 result,
                 $"{result.TotalCount} derslik bulundu."
             );
+        }
+
+        public IResult RemoveDerslikFromBolum(int derslikId, int bolumId)
+        {
+            // Derslik-Bölüm ilişkisini bul
+            var derslikBolum = _derslikBolumDal.Get(db => db.DerslikId == derslikId && db.BolumId == bolumId);
+            
+            if (derslikBolum == null)
+            {
+                return new ErrorResult("Bu derslik-bölüm ilişkisi bulunamadı.");
+            }
+
+            // Sadece ilişkiyi sil
+            _derslikBolumDal.Delete(derslikBolum);
+
+            // Dersliğin başka bölümlerle ilişkisi var mı kontrol et
+            var remainingRelations = _derslikBolumDal.GetAll(db => db.DerslikId == derslikId);
+            
+            if (remainingRelations.Count == 0)
+            {
+                return new SuccessResult("Derslik bu bölümden kaldırıldı. Artık ortak derslik olarak işaretlendi.");
+            }
+
+            return new SuccessResult($"Derslik bu bölümden kaldırıldı. Hala {remainingRelations.Count} bölümle ilişkili.");
         }
     }
 }

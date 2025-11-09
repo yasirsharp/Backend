@@ -22,5 +22,6 @@ namespace Business.Abstract
         IResult UpdateDerslikWithBolumler(DerslikGuncelleDTO derslikGuncelleDto);
         IDataResult<List<DerslikWithBolumlerDTO>> GetAllWithBolumler();
         IDataResult<PagedResult<Derslik>> GetPagedList(PaginationParams paginationParams);
+        IResult RemoveDerslikFromBolum(int derslikId, int bolumId);
     }
 }
