@@ -7,7 +7,6 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 namespace Business.Concrete
@@ -25,6 +24,22 @@ namespace Business.Concrete
         {
             _sinavDetayDal = sinavDetayDal;
             _derslikDal = derslikDal;
+        }
+
+        /// <summary>
+        /// Derslik ID'lerini derslik adlarına çevir
+        /// </summary>
+        private string GetDersliklerText(List<DerslikGozetmenDTO> derslikler)
+        {
+            if (derslikler == null || !derslikler.Any())
+                return "-";
+
+            var derslikIds = derslikler.Select(d => d.DerslikId).Distinct().ToList();
+            var derslikAdlari = _derslikDal.GetAll(d => derslikIds.Contains(d.Id))
+                .Select(d => d.Ad)
+                .ToList();
+
+            return derslikAdlari.Any() ? string.Join(", ", derslikAdlari) : "-";
         }
 
         /// <summary>
@@ -57,10 +72,10 @@ namespace Business.Concrete
                 {
                     container.Page(page =>
                     {
-                        page.Size(PageSizes.A4);
+                        page.Size(PageSizes.A4.Landscape()); // YATAY
                         page.Margin(1.5f, Unit.Centimetre);
                         page.PageColor(Colors.White);
-                        page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
+                        page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
 
                         // Header
                         page.Header().Element(ComposeHeader);
@@ -118,24 +133,30 @@ namespace Business.Concrete
                 // Sınav tablosu
                 column.Item().Table(table =>
                 {
-                    // Tablo sütunları
+                    // Tablo sütunları: 8 sütun
                     table.ColumnsDefinition(columns =>
                     {
-                        columns.RelativeColumn(2);  // Tarih
+                        columns.RelativeColumn(3);  // Bölüm Adı
                         columns.RelativeColumn(4);  // Ders Adı
-                        columns.RelativeColumn(3);  // Bölüm
-                        columns.RelativeColumn(4);  // Öğretim Görevlisi
-                        columns.RelativeColumn(2);  // Saat
+                        columns.RelativeColumn(3);  // Öğretim Görevlisi
+                        columns.RelativeColumn(2);  // Sınav Tarihi
+                        columns.RelativeColumn(2);  // Sınav Günü
+                        columns.RelativeColumn(1.5f);  // Başlangıç Saati
+                        columns.RelativeColumn(1.5f);  // Bitiş Saati
+                        columns.RelativeColumn(3);  // Derslikler
                     });
 
                     // Header
                     table.Header(header =>
                     {
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Tarih").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Bölüm Adı").FontColor(Colors.White).Bold();
                         header.Cell().Element(CellStyle).Background("#5B21B6").Text("Ders Adı").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Bölüm").FontColor(Colors.White).Bold();
                         header.Cell().Element(CellStyle).Background("#5B21B6").Text("Öğretim Görevlisi").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Saat").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Sınav Tarihi").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Sınav Günü").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Başlangıç").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Bitiş").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Derslikler").FontColor(Colors.White).Bold();
 
                         static IContainer CellStyle(IContainer container)
                         {
@@ -150,11 +171,20 @@ namespace Business.Concrete
                         var backgroundColor = rowIndex % 2 == 0 ? Colors.White : Colors.Grey.Lighten4;
                         rowIndex++;
 
-                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(sinav.SinavTarihi.ToString("dd.MM.yyyy"));
-                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(sinav.DersAd);
+                        // Sınav günü hesapla
+                        string sinavGunu = sinav.SinavTarihi.ToString("dddd", new System.Globalization.CultureInfo("tr-TR"));
+                        
+                        // Derslikler listesi oluştur
+                        string derslikler = GetDersliklerText(sinav.Derslikler);
+
                         table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(sinav.BolumAd);
+                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(sinav.DersAd);
                         table.Cell().Element(container => CellStyle(container, backgroundColor)).Text($"{sinav.Unvan} {sinav.AkademikPersonelAd}");
-                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text($"{sinav.SinavBaslangicSaati} - {sinav.SinavBitisSaati}");
+                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(sinav.SinavTarihi.ToString("dd.MM.yyyy"));
+                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(sinavGunu);
+                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(sinav.SinavBaslangicSaati.ToString("HH:mm"));
+                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(sinav.SinavBitisSaati.ToString("HH:mm"));
+                        table.Cell().Element(container => CellStyle(container, backgroundColor)).Text(derslikler).FontSize(8);
                     }
 
                     static IContainer CellStyle(IContainer container, string backgroundColor)
