@@ -80,6 +80,8 @@ namespace Business.DependecyResolvers.Autofac
             builder.RegisterType<UserAssistantPreferenceManager>().As<IUserAssistantPreferenceService>();
             builder.RegisterType<EfUserAssistantPreferenceDal>().As<IUserAssistantPreferenceDal>();
 
+            // Report System (9 Kasım 2025)
+            builder.RegisterType<ReportManager>().As<IReportService>();
 
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
 
