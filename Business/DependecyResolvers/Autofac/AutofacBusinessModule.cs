@@ -83,6 +83,10 @@ namespace Business.DependecyResolvers.Autofac
             // Report System (9 Kasım 2025)
             builder.RegisterType<ReportManager>().As<IReportService>();
 
+            // Akademik Personel Müsaitlik Sistemi
+            builder.RegisterType<AkademikPersonelMusaitlikManager>().As<IAkademikPersonelMusaitlikService>();
+            builder.RegisterType<EfAkademikPersonelMusaitlikDal>().As<IAkademikPersonelMusaitlikDal>();
+
             builder.RegisterType<DuzceUniversiteContext>();
 
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();

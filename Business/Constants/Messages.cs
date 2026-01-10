@@ -102,5 +102,14 @@ namespace Business.Constants
         public static string BotDisabled = "Yardımcı bot devre dışı bırakıldı.";
 
         public static string AkademikPersonelHasRelations = "Akademik Personel bölüm ders eşleştirmeleri var?";
+
+        // Akademik Personel Müsaitlik Messages
+        public static string MusaitlikAdded = "Müsaitlik kaydı eklendi.";
+        public static string MusaitlikUpdated = "Müsaitlik kaydı güncellendi.";
+        public static string MusaitlikDeleted = "Müsaitlik kaydı silindi.";
+        public static string MusaitlikNotFound = "Müsaitlik kaydı bulunamadı.";
+        public static string MusaitlikCakisma = "Bu tarih ve saat aralığında zaten bir kayıt mevcut.";
+        public static string PersonelMesgul = "Personel bu tarih ve saatte meşgul.";
+        public static string PersonelMusait = "Personel bu tarih ve saatte müsait.";
     }
 }

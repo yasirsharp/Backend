@@ -35,6 +35,9 @@ namespace DataAccess.Concrete.EntityFramework
         public DbSet<AssistantInteraction> AssistantInteractions { get; set; }
         public DbSet<UserAssistantPreference> UserAssistantPreferences { get; set; }
 
+        // Akademik Personel Müsaitlik Sistemi
+        public DbSet<AkademikPersonelMusaitlik> AkademikPersonelMusaitlik { get; set; }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             //optionsBuilder.UseSqlServer(@"Server=172.16.4.4; Database=ysr.sinav_takvimi; User Id=yasir; Password=Yasir0308; Trust Server Certificate=True;");
