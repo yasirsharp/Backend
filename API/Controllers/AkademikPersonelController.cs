@@ -88,36 +88,42 @@ namespace API.Controllers
         }
 
         [HttpPost]
-        public IActionResult Add(AkademikPersonel akademikPersonel)
+        public async Task<IActionResult> Add(AkademikPersonel akademikPersonel)
         {
-            var result = _akademikPersonelService.Add(akademikPersonel);
+            var result = await _akademikPersonelService.Add(akademikPersonel);
+
             if (result.Success)
                 return Created("", result);
+
             return BadRequest(result);
         }
-
-
         [HttpPut]
-        public IActionResult Update(AkademikPersonel akademikPersonel)
+        public async Task<IActionResult> Update(AkademikPersonel akademikPersonel)
         {
-            var result = _akademikPersonelService.Update(akademikPersonel);
+            var result = await _akademikPersonelService.Update(akademikPersonel);
+
             if (result.Success)
                 return Ok(result);
+
             return BadRequest(result);
         }
 
         [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var akademikPersonel = _akademikPersonelService.GetById(id).Data;
-            if (akademikPersonel == null)
+            var akademikPersonelResult = _akademikPersonelService.GetById(id);
+
+            if (!akademikPersonelResult.Success || akademikPersonelResult.Data == null)
                 return NotFound(new { Success = false, Message = "Akademik personel bulunamadı" });
 
-            var result = _akademikPersonelService.Delete(akademikPersonel);
+            var result = await _akademikPersonelService.Delete(akademikPersonelResult.Data);
+
             if (result.Success)
                 return Ok(result);
+
             return BadRequest(result);
         }
+
 
     }
 } 

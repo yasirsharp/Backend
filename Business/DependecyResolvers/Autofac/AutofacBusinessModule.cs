@@ -83,6 +83,8 @@ namespace Business.DependecyResolvers.Autofac
             // Report System (9 Kasım 2025)
             builder.RegisterType<ReportManager>().As<IReportService>();
 
+            builder.RegisterType<DuzceUniversiteContext>();
+
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
 
             builder.RegisterAssemblyTypes(assembly).AsImplementedInterfaces()

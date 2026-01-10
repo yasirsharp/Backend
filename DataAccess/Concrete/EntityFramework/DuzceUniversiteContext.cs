@@ -38,8 +38,8 @@ namespace DataAccess.Concrete.EntityFramework
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             //optionsBuilder.UseSqlServer(@"Server=172.16.4.4; Database=ysr.sinav_takvimi; User Id=yasir; Password=Yasir0308; Trust Server Certificate=True;");
-            optionsBuilder.UseSqlServer(@"Server=YASIR\DUPROJECTS; Database=DuzceUniversite; Trust Server Certificate=True; User Id = sa; Password = 123456Aa");
-            //optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=DuzceUniversite;Trusted_Connection=true");
+            //optionsBuilder.UseSqlServer(@"Server=YASIR\DUPROJECTS; Database=DuzceUniversite; Trust Server Certificate=True; User Id = sa; Password = 123456Aa");
+            optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=DuzceUniversitesiSinavTakvimi;Trusted_Connection=true");
         }
     }
 } 

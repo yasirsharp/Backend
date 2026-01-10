@@ -153,7 +153,7 @@ namespace Business.Concrete
             // 4. DAL: Transaction içinde kaydet (User → AkademikPersonel → Role)
             try
             {
-                _akademikPersonelDal.AddAkademikPersonelWithUserOperationClaimAsync(
+                _akademikPersonelDal.AddWithUserAsync(
                     user, 
                     akademikPersonel, 
                     userOperationClaim

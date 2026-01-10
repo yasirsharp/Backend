@@ -44,14 +44,14 @@ namespace Business.Constants
 
         public static string SomethingWrong = "Bir şeyler yanlış gidiyor. @?!!#";
 
-        public static string SinavDetayAdded ="Sinav Detay Eşleştirmesi eklendi.";
-        public static string SinavDetayDeleted ="Sinav Detay Eşleştirmesi silindi.";
-        public static string SinavDetayUpdated ="Sinav Detay Eşleştirmesi güncellendi.";
-        public static string SinavDetayNotFound ="Sınav kaydı bulunamadı.";
+        public static string SinavDetayAdded = "Sinav Detay Eşleştirmesi eklendi.";
+        public static string SinavDetayDeleted = "Sinav Detay Eşleştirmesi silindi.";
+        public static string SinavDetayUpdated = "Sinav Detay Eşleştirmesi güncellendi.";
+        public static string SinavDetayNotFound = "Sınav kaydı bulunamadı.";
 
-        public static string SinavDerslikAdded ="Sinav Derslik Eşleştirmesi eklendi.";
+        public static string SinavDerslikAdded = "Sinav Derslik Eşleştirmesi eklendi.";
         public static string SinavDerslikDeleted = "Sinav Derslik Eşleştirmesi silindi.";
-        public static string SinavDerslikUpdated ="Sinav Derslik Eşleştirmesi güncellendi.";
+        public static string SinavDerslikUpdated = "Sinav Derslik Eşleştirmesi güncellendi.";
 
         public static string UserAdded = "Kullanıcı başarıyla eklendi.";
         public static string UserDeleted = "Kullanıcı silindi.";
@@ -63,12 +63,12 @@ namespace Business.Constants
         public static string SuccessfulLogin = "Giriş başarılı.";
         public static string UserRegistered = "Kullanıcı başarıyla kaydedildi.";
         public static string PasswordError = "Şifre hatalı.";
-        
+
         public static string OperationClaimAdded = "Yetki başarıyla eklendi.";
         public static string OperationClaimUpdated = "Yetki başarıyla güncellendi.";
         public static string OperationClaimListed = "Yetkiler listelendi.";
         public static string OperationClaimDeleted = "Yetki başarıyla silindi.";
-        
+
         public static string UserOperationClaimAdded = "Kullanıcı yetkisi başarıyla eklendi.";
         public static string UserOperationClaimDeleted = "Kullanıcı yetkisi başarıyla silindi.";
         public static string UserOperationClaimListed = "Kullanıcı yetkileri listelendi.";
@@ -100,5 +100,7 @@ namespace Business.Constants
         public static string OnboardingCompleted = "Giriş turu tamamlandı.";
         public static string BotEnabled = "Yardımcı bot etkinleştirildi.";
         public static string BotDisabled = "Yardımcı bot devre dışı bırakıldı.";
+
+        public static string AkademikPersonelHasRelations = "Akademik Personel bölüm ders eşleştirmeleri var?";
     }
 }
