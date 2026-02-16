@@ -6,9 +6,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Entity.Concrete
 {
     /// <summary>
-    /// Akademik personelin müsait OLMADIĞI (meşgul) zaman dilimlerini tutar.
+    /// Akademik personelin müsaitlik/meşguliyet zaman dilimlerini tutar.
+    /// IsMusait alanı ile müsait/meşgul durumu ayırt edilir.
     /// Sınav gözetmenliği ataması yaparken bu kayıtlar kontrol edilir.
-    /// Tekrar tipi ile haftalık/aylık düzenli meşguliyetler tanımlanabilir.
+    /// Tekrar tipi ile haftalık/aylık düzenli müsaitlikler tanımlanabilir.
     /// </summary>
     public class AkademikPersonelMusaitlik : IEntity
     {
@@ -57,6 +58,13 @@ namespace Entity.Concrete
         /// Tekil için: null
         /// </summary>
         public int? TekrarGunu { get; set; }
+
+        /// <summary>
+        /// Müsaitlik durumu: true = Müsait, false = Meşgul
+        /// Frontend'de renk kodlaması ve sınav gözetmen ataması için kullanılır
+        /// </summary>
+        [Required]
+        public bool IsMusait { get; set; } = false;
 
         /// <summary>
         /// Meşguliyet nedeni (opsiyonel)

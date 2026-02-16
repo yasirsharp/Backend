@@ -1,5 +1,6 @@
 using Core.Utilities.Results;
 using Entity.Concrete;
+using Entity.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -14,14 +15,14 @@ namespace Business.Abstract
         #region CRUD İşlemleri
 
         /// <summary>
-        /// Yeni müsaitlik kaydı ekler
+        /// Yeni müsaitlik kaydı ekler (çakışma kontrolü ile)
         /// </summary>
-        Task<IResult> AddAsync(AkademikPersonelMusaitlik musaitlik);
+        Task<IResult> AddAsync(MusaitlikCreateDto dto);
 
         /// <summary>
         /// Müsaitlik kaydını günceller
         /// </summary>
-        Task<IResult> UpdateAsync(AkademikPersonelMusaitlik musaitlik);
+        Task<IResult> UpdateAsync(MusaitlikUpdateDto dto);
 
         /// <summary>
         /// Müsaitlik kaydını siler (soft delete)
@@ -29,9 +30,14 @@ namespace Business.Abstract
         Task<IResult> DeleteAsync(int id);
 
         /// <summary>
+        /// Toplu silme (birden fazla kaydı tek seferde sil)
+        /// </summary>
+        Task<IResult> DeleteBatchAsync(List<int> ids);
+
+        /// <summary>
         /// ID'ye göre müsaitlik kaydını getirir
         /// </summary>
-        IDataResult<AkademikPersonelMusaitlik> GetById(int id);
+        IDataResult<MusaitlikResponseDto> GetById(int id);
 
         #endregion
 
@@ -40,12 +46,12 @@ namespace Business.Abstract
         /// <summary>
         /// Akademik personelin tüm müsaitlik kayıtlarını getirir
         /// </summary>
-        Task<IDataResult<List<AkademikPersonelMusaitlik>>> GetByPersonelIdAsync(int akademikPersonelId);
+        Task<IDataResult<List<MusaitlikResponseDto>>> GetByPersonelIdAsync(int akademikPersonelId);
 
         /// <summary>
         /// Akademik personelin belirli ay için müsaitlik takvimini getirir
         /// </summary>
-        Task<IDataResult<List<AkademikPersonelMusaitlik>>> GetTakvimAsync(
+        Task<IDataResult<List<MusaitlikResponseDto>>> GetTakvimAsync(
             int akademikPersonelId, 
             int yil, 
             int ay);
@@ -53,7 +59,7 @@ namespace Business.Abstract
         /// <summary>
         /// Belirli tarih aralığındaki müsaitlik kayıtlarını getirir
         /// </summary>
-        Task<IDataResult<List<AkademikPersonelMusaitlik>>> GetByDateRangeAsync(
+        Task<IDataResult<List<MusaitlikResponseDto>>> GetByDateRangeAsync(
             int akademikPersonelId,
             DateTime baslangic,
             DateTime bitis);

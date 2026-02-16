@@ -19,11 +19,13 @@ namespace Business.Concrete
     {
         ISinavDetayDal _sinavDetayDal;
         IAkademikPersonelService _akademikPersonelService;
+        IAkademikPersonelMusaitlikDal _musaitlikDal;
 
-        public SinavDetayManager(ISinavDetayDal sinavDetayDal, IAkademikPersonelService akademikPersonelService)
+        public SinavDetayManager(ISinavDetayDal sinavDetayDal, IAkademikPersonelService akademikPersonelService, IAkademikPersonelMusaitlikDal musaitlikDal)
         {
             _sinavDetayDal = sinavDetayDal;
             _akademikPersonelService = akademikPersonelService;
+            _musaitlikDal = musaitlikDal;
         }
         public IDataResult<List<SinavDetayDTO>> GetByDerslikler(int[] derslikIds)
         {
@@ -162,7 +164,22 @@ namespace Business.Concrete
                 TimeOnly baslangicSaati = TimeOnly.Parse(sinavKayitDTO.SinavBaslangicSaati);
                 TimeOnly bitisSaati = TimeOnly.Parse(sinavKayitDTO.SinavBitisSaati);
 
-                // Çakışma kontrolü
+                // Gözetmenlerin müsaitlik kontrolü
+                foreach (var gozetmenId in gozetmenIdleri)
+                {
+                    var isMesgul = _musaitlikDal.IsMesgulAsync(
+                        gozetmenId, sinavKayitDTO.SinavTarihi,
+                        baslangicSaati.ToTimeSpan(), bitisSaati.ToTimeSpan()).Result;
+
+                    if (isMesgul)
+                    {
+                        var personel = _akademikPersonelService.GetById(gozetmenId);
+                        var personelAd = personel.Success ? $"{personel.Data.Unvan} {personel.Data.Ad}" : $"ID: {gozetmenId}";
+                        return new ErrorResult($"Gözetmen '{personelAd}' bu tarih ve saatte meşgul olarak işaretlenmiştir.");
+                    }
+                }
+
+                // Sınav çakışma kontrolü
                 var result = _sinavDetayDal.ExistSinav(derslikIdleri, gozetmenIdleri, sinavKayitDTO.DersBolumAkademikPersonelId,
                                                                       baslangicSaati, bitisSaati, sinavKayitDTO.SinavTarihi);
 
@@ -265,6 +282,21 @@ namespace Business.Concrete
                 // Derslik ve gözetmenleri listeye çevir
                 List<int> derslikIdleri = sinavGuncelleDTO.Derslikler.Select(d => d.DerslikId).ToList();
                 List<int> gozetmenIdleri = sinavGuncelleDTO.Derslikler.Where(d => d.GozetmenId.HasValue).Select(d => d.GozetmenId.Value).ToList();
+
+                // Gözetmenlerin müsaitlik kontrolü
+                foreach (var gozetmenId in gozetmenIdleri)
+                {
+                    var isMesgul = _musaitlikDal.IsMesgulAsync(
+                        gozetmenId, sinavGuncelleDTO.SinavTarihi,
+                        sinavGuncelleDTO.SinavBaslangicSaati.ToTimeSpan(), sinavGuncelleDTO.SinavBitisSaati.ToTimeSpan()).Result;
+
+                    if (isMesgul)
+                    {
+                        var personel = _akademikPersonelService.GetById(gozetmenId);
+                        var personelAd = personel.Success ? $"{personel.Data.Unvan} {personel.Data.Ad}" : $"ID: {gozetmenId}";
+                        return new ErrorResult($"Gözetmen '{personelAd}' bu tarih ve saatte meşgul olarak işaretlenmiştir.");
+                    }
+                }
 
                 // Çakışma kontrolü (kendi ID'si hariç)
                 var conflictingExam = _sinavDetayDal.ExistSinav(derslikIdleri, gozetmenIdleri, sinavGuncelleDTO.DersBolumAkademikPersonelId,

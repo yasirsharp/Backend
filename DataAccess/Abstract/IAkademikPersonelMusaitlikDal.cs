@@ -2,6 +2,7 @@ using Core.DataAccess;
 using Entity.Concrete;
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 
 namespace DataAccess.Abstract
@@ -11,6 +12,48 @@ namespace DataAccess.Abstract
     /// </summary>
     public interface IAkademikPersonelMusaitlikDal : IEntityRepository<AkademikPersonelMusaitlik>
     {
+        #region Async CRUD
+
+        /// <summary>
+        /// Async kayıt ekleme
+        /// </summary>
+        Task AddAsync(AkademikPersonelMusaitlik entity);
+
+        /// <summary>
+        /// Async kayıt güncelleme
+        /// </summary>
+        Task UpdateAsync(AkademikPersonelMusaitlik entity);
+
+        /// <summary>
+        /// Filtreye göre async kayıt getirme
+        /// </summary>
+        Task<AkademikPersonelMusaitlik?> GetAsync(Expression<Func<AkademikPersonelMusaitlik, bool>> filter);
+
+        /// <summary>
+        /// Toplu silme (soft delete)
+        /// </summary>
+        Task<int> DeleteBatchAsync(List<int> ids);
+
+        #endregion
+
+        #region Çakışma Kontrolü
+
+        /// <summary>
+        /// Belirli personel ve zaman diliminde çakışan kayıt var mı kontrol eder
+        /// </summary>
+        Task<bool> HasOverlapAsync(
+            int akademikPersonelId,
+            DateTime baslangicTarihi,
+            DateTime? bitisTarihi,
+            TimeSpan? baslangicSaati,
+            TimeSpan? bitisSaati,
+            TekrarTipiEnum tekrarTipi,
+            int? excludeId = null);
+
+        #endregion
+
+        #region Sorgulama
+
         /// <summary>
         /// Belirli bir akademik personelin tüm müsaitlik kayıtlarını getirir
         /// </summary>
@@ -26,7 +69,6 @@ namespace DataAccess.Abstract
 
         /// <summary>
         /// Belirli bir tarih ve saat aralığında meşgul olan personellerin ID'lerini getirir
-        /// (Sınav gözetmen ataması için kullanılır)
         /// </summary>
         Task<List<int>> GetMesgulPersonelIdlerAsync(
             DateTime tarih, 
@@ -35,7 +77,6 @@ namespace DataAccess.Abstract
 
         /// <summary>
         /// Belirli bir tarih ve saat aralığında müsait olan personelleri getirir
-        /// (Sınav gözetmen ataması için kullanılır)
         /// </summary>
         Task<List<AkademikPersonel>> GetMusaitPersonellerAsync(
             DateTime tarih, 
@@ -47,8 +88,10 @@ namespace DataAccess.Abstract
         /// </summary>
         Task<bool> IsMesgulAsync(
             int akademikPersonelId, 
-            DateTime tarih, 
-            TimeSpan? baslangicSaati, 
+            DateTime tarih,
+            TimeSpan? baslangicSaati,
             TimeSpan? bitisSaati);
+
+        #endregion
     }
 }

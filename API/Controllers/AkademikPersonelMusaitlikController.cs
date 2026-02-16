@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
-using Entity.Concrete;
+using Entity.DTOs;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace API.Controllers
@@ -12,6 +14,7 @@ namespace API.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AkademikPersonelMusaitlikController : ControllerBase
     {
         private readonly IAkademikPersonelMusaitlikService _musaitlikService;
@@ -24,13 +27,12 @@ namespace API.Controllers
         #region CRUD Endpoint'leri
 
         /// <summary>
-        /// Yeni müsaitlik kaydı ekler
+        /// Yeni müsaitlik kaydı ekler (çakışma kontrolü ile)
         /// </summary>
-        /// <param name="musaitlik">Müsaitlik bilgileri</param>
         [HttpPost]
-        public async Task<IActionResult> Add([FromBody] AkademikPersonelMusaitlik musaitlik)
+        public async Task<IActionResult> Add([FromBody] MusaitlikCreateDto dto)
         {
-            var result = await _musaitlikService.AddAsync(musaitlik);
+            var result = await _musaitlikService.AddAsync(dto);
             if (result.Success)
                 return Created("", result);
             return BadRequest(result);
@@ -39,11 +41,10 @@ namespace API.Controllers
         /// <summary>
         /// Müsaitlik kaydını günceller
         /// </summary>
-        /// <param name="musaitlik">Güncellenecek müsaitlik bilgileri</param>
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] AkademikPersonelMusaitlik musaitlik)
+        public async Task<IActionResult> Update([FromBody] MusaitlikUpdateDto dto)
         {
-            var result = await _musaitlikService.UpdateAsync(musaitlik);
+            var result = await _musaitlikService.UpdateAsync(dto);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
@@ -52,7 +53,6 @@ namespace API.Controllers
         /// <summary>
         /// Müsaitlik kaydını siler (soft delete)
         /// </summary>
-        /// <param name="id">Silinecek kayıt ID'si</param>
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -63,9 +63,20 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// Toplu silme - birden fazla kaydı tek seferde siler
+        /// </summary>
+        [HttpPost("batch-delete")]
+        public async Task<IActionResult> DeleteBatch([FromBody] List<int> ids)
+        {
+            var result = await _musaitlikService.DeleteBatchAsync(ids);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>
         /// ID'ye göre müsaitlik kaydını getirir
         /// </summary>
-        /// <param name="id">Kayıt ID'si</param>
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
@@ -82,7 +93,6 @@ namespace API.Controllers
         /// <summary>
         /// Akademik personelin tüm müsaitlik kayıtlarını getirir
         /// </summary>
-        /// <param name="personelId">Akademik personel ID'si</param>
         [HttpGet("personel/{personelId}")]
         public async Task<IActionResult> GetByPersonelId(int personelId)
         {
@@ -94,11 +104,7 @@ namespace API.Controllers
 
         /// <summary>
         /// Akademik personelin belirli ay için müsaitlik takvimini getirir
-        /// Frontend takvim komponenti için kullanılır
         /// </summary>
-        /// <param name="personelId">Akademik personel ID'si</param>
-        /// <param name="yil">Yıl (örn: 2026)</param>
-        /// <param name="ay">Ay (1-12)</param>
         [HttpGet("takvim/{personelId}/{yil}/{ay}")]
         public async Task<IActionResult> GetTakvim(int personelId, int yil, int ay)
         {
@@ -114,9 +120,6 @@ namespace API.Controllers
         /// <summary>
         /// Belirli tarih aralığındaki müsaitlik kayıtlarını getirir
         /// </summary>
-        /// <param name="personelId">Akademik personel ID'si</param>
-        /// <param name="baslangic">Başlangıç tarihi (YYYY-MM-DD)</param>
-        /// <param name="bitis">Bitiş tarihi (YYYY-MM-DD)</param>
         [HttpGet("personel/{personelId}/tarih-araligi")]
         public async Task<IActionResult> GetByDateRange(
             int personelId,
@@ -138,11 +141,7 @@ namespace API.Controllers
 
         /// <summary>
         /// Belirli tarih ve saatte müsait olan personelleri getirir
-        /// Sınav gözetmen ataması için kullanılır
         /// </summary>
-        /// <param name="tarih">Sınav tarihi (YYYY-MM-DD)</param>
-        /// <param name="baslangicSaati">Sınav başlangıç saati (HH:mm) - opsiyonel</param>
-        /// <param name="bitisSaati">Sınav bitiş saati (HH:mm) - opsiyonel</param>
         [HttpGet("musait-personeller")]
         public async Task<IActionResult> GetMusaitPersoneller(
             [FromQuery] DateTime tarih,
@@ -152,7 +151,6 @@ namespace API.Controllers
             TimeSpan? baslangic = null;
             TimeSpan? bitis = null;
 
-            // Saat string'lerini TimeSpan'e çevir
             if (!string.IsNullOrEmpty(baslangicSaati) && TimeSpan.TryParse(baslangicSaati, out var bs))
                 baslangic = bs;
 
@@ -168,9 +166,6 @@ namespace API.Controllers
         /// <summary>
         /// Belirli tarih ve saatte meşgul olan personel ID'lerini getirir
         /// </summary>
-        /// <param name="tarih">Tarih (YYYY-MM-DD)</param>
-        /// <param name="baslangicSaati">Başlangıç saati (HH:mm) - opsiyonel</param>
-        /// <param name="bitisSaati">Bitiş saati (HH:mm) - opsiyonel</param>
         [HttpGet("mesgul-personeller")]
         public async Task<IActionResult> GetMesgulPersoneller(
             [FromQuery] DateTime tarih,
@@ -194,12 +189,7 @@ namespace API.Controllers
 
         /// <summary>
         /// Personelin belirli tarih ve saatte meşgul olup olmadığını kontrol eder
-        /// Gözetmen atama öncesi validasyon için kullanılır
         /// </summary>
-        /// <param name="personelId">Akademik personel ID'si</param>
-        /// <param name="tarih">Tarih (YYYY-MM-DD)</param>
-        /// <param name="baslangicSaati">Başlangıç saati (HH:mm) - opsiyonel</param>
-        /// <param name="bitisSaati">Bitiş saati (HH:mm) - opsiyonel</param>
         [HttpGet("kontrol/{personelId}")]
         public async Task<IActionResult> CheckMusaitlik(
             int personelId,

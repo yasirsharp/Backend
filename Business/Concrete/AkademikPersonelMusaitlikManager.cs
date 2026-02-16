@@ -3,8 +3,10 @@ using Business.Constants;
 using Core.Utilities.Results;
 using DataAccess.Abstract;
 using Entity.Concrete;
+using Entity.DTOs;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Business.Concrete
@@ -25,39 +27,108 @@ namespace Business.Concrete
         #region CRUD İşlemleri
 
         /// <summary>
-        /// Yeni müsaitlik kaydı ekler
-        /// Tekrar tipine göre TekrarGunu değerini otomatik ayarlar
+        /// Yeni müsaitlik kaydı ekler (çakışma kontrolü ile)
         /// </summary>
-        public async Task<IResult> AddAsync(AkademikPersonelMusaitlik musaitlik)
+        public async Task<IResult> AddAsync(MusaitlikCreateDto dto)
         {
+            // Saat validasyonu
+            if (dto.BaslangicSaati.HasValue && dto.BitisSaati.HasValue
+                && dto.BaslangicSaati.Value >= dto.BitisSaati.Value)
+            {
+                return new ErrorResult("Başlangıç saati bitiş saatinden önce olmalıdır.");
+            }
+
+            // Tarih validasyonu
+            if (dto.BitisTarihi.HasValue && dto.BaslangicTarihi > dto.BitisTarihi.Value)
+            {
+                return new ErrorResult("Başlangıç tarihi bitiş tarihinden sonra olamaz.");
+            }
+
+            // Çakışma kontrolü
+            var cakismaVar = await _musaitlikDal.HasOverlapAsync(
+                dto.AkademikPersonelId,
+                dto.BaslangicTarihi,
+                dto.BitisTarihi,
+                dto.BaslangicSaati,
+                dto.BitisSaati,
+                dto.TekrarTipi,
+                excludeId: null);
+
+            if (cakismaVar)
+            {
+                return new ErrorResult(Messages.MusaitlikCakisma);
+            }
+
+            // DTO'dan entity oluştur
+            var musaitlik = new AkademikPersonelMusaitlik
+            {
+                AkademikPersonelId = dto.AkademikPersonelId,
+                BaslangicTarihi = dto.BaslangicTarihi,
+                BitisTarihi = dto.BitisTarihi,
+                BaslangicSaati = dto.BaslangicSaati,
+                BitisSaati = dto.BitisSaati,
+                TekrarTipi = dto.TekrarTipi,
+                IsMusait = dto.IsMusait,
+                Neden = dto.Neden,
+                Aciklama = dto.Aciklama,
+                CreatedDate = DateTime.Now,
+                Status = true
+            };
+
             // Tekrar tipine göre TekrarGunu'nu otomatik ayarla
             SetTekrarGunu(musaitlik);
 
-            // Audit alanlarını ayarla
-            musaitlik.CreatedDate = DateTime.Now;
-            musaitlik.Status = true;
-
-            _musaitlikDal.Add(musaitlik);
+            await _musaitlikDal.AddAsync(musaitlik);
             return new SuccessResult(Messages.MusaitlikAdded);
         }
 
         /// <summary>
         /// Müsaitlik kaydını günceller
         /// </summary>
-        public async Task<IResult> UpdateAsync(AkademikPersonelMusaitlik musaitlik)
+        public async Task<IResult> UpdateAsync(MusaitlikUpdateDto dto)
         {
-            var existing = _musaitlikDal.Get(m => m.Id == musaitlik.Id);
+            var existing = await _musaitlikDal.GetAsync(m => m.Id == dto.Id && m.Status);
             if (existing == null)
                 return new ErrorResult(Messages.MusaitlikNotFound);
 
+            // Saat validasyonu
+            if (dto.BaslangicSaati.HasValue && dto.BitisSaati.HasValue
+                && dto.BaslangicSaati.Value >= dto.BitisSaati.Value)
+            {
+                return new ErrorResult("Başlangıç saati bitiş saatinden önce olmalıdır.");
+            }
+
+            // Çakışma kontrolü (kendi kaydını hariç tut)
+            var cakismaVar = await _musaitlikDal.HasOverlapAsync(
+                dto.AkademikPersonelId,
+                dto.BaslangicTarihi,
+                dto.BitisTarihi,
+                dto.BaslangicSaati,
+                dto.BitisSaati,
+                dto.TekrarTipi,
+                excludeId: dto.Id);
+
+            if (cakismaVar)
+            {
+                return new ErrorResult(Messages.MusaitlikCakisma);
+            }
+
+            // Mevcut entity'yi güncelle
+            existing.AkademikPersonelId = dto.AkademikPersonelId;
+            existing.BaslangicTarihi = dto.BaslangicTarihi;
+            existing.BitisTarihi = dto.BitisTarihi;
+            existing.BaslangicSaati = dto.BaslangicSaati;
+            existing.BitisSaati = dto.BitisSaati;
+            existing.TekrarTipi = dto.TekrarTipi;
+            existing.IsMusait = dto.IsMusait;
+            existing.Neden = dto.Neden;
+            existing.Aciklama = dto.Aciklama;
+            existing.UpdatedDate = DateTime.Now;
+
             // Tekrar tipine göre TekrarGunu'nu güncelle
-            SetTekrarGunu(musaitlik);
+            SetTekrarGunu(existing);
 
-            // Audit alanlarını güncelle
-            musaitlik.CreatedDate = existing.CreatedDate;
-            musaitlik.UpdatedDate = DateTime.Now;
-
-            _musaitlikDal.Update(musaitlik);
+            await _musaitlikDal.UpdateAsync(existing);
             return new SuccessResult(Messages.MusaitlikUpdated);
         }
 
@@ -66,7 +137,7 @@ namespace Business.Concrete
         /// </summary>
         public async Task<IResult> DeleteAsync(int id)
         {
-            var musaitlik = _musaitlikDal.Get(m => m.Id == id);
+            var musaitlik = await _musaitlikDal.GetAsync(m => m.Id == id);
             if (musaitlik == null)
                 return new ErrorResult(Messages.MusaitlikNotFound);
 
@@ -74,20 +145,32 @@ namespace Business.Concrete
             musaitlik.Status = false;
             musaitlik.UpdatedDate = DateTime.Now;
 
-            _musaitlikDal.Update(musaitlik);
+            await _musaitlikDal.UpdateAsync(musaitlik);
             return new SuccessResult(Messages.MusaitlikDeleted);
+        }
+
+        /// <summary>
+        /// Toplu silme (birden fazla kaydı tek seferde sil)
+        /// </summary>
+        public async Task<IResult> DeleteBatchAsync(List<int> ids)
+        {
+            if (ids == null || ids.Count == 0)
+                return new ErrorResult("Silinecek kayıt belirtilmedi.");
+
+            var deletedCount = await _musaitlikDal.DeleteBatchAsync(ids);
+            return new SuccessResult($"{deletedCount} müsaitlik kaydı silindi.");
         }
 
         /// <summary>
         /// ID'ye göre müsaitlik kaydını getirir
         /// </summary>
-        public IDataResult<AkademikPersonelMusaitlik> GetById(int id)
+        public IDataResult<MusaitlikResponseDto> GetById(int id)
         {
             var musaitlik = _musaitlikDal.Get(m => m.Id == id && m.Status);
             if (musaitlik == null)
-                return new ErrorDataResult<AkademikPersonelMusaitlik>(Messages.MusaitlikNotFound);
+                return new ErrorDataResult<MusaitlikResponseDto>(Messages.MusaitlikNotFound);
 
-            return new SuccessDataResult<AkademikPersonelMusaitlik>(musaitlik);
+            return new SuccessDataResult<MusaitlikResponseDto>(MapToResponseDto(musaitlik));
         }
 
         #endregion
@@ -97,38 +180,40 @@ namespace Business.Concrete
         /// <summary>
         /// Akademik personelin tüm aktif müsaitlik kayıtlarını getirir
         /// </summary>
-        public async Task<IDataResult<List<AkademikPersonelMusaitlik>>> GetByPersonelIdAsync(int akademikPersonelId)
+        public async Task<IDataResult<List<MusaitlikResponseDto>>> GetByPersonelIdAsync(int akademikPersonelId)
         {
             var kayitlar = await _musaitlikDal.GetByAkademikPersonelIdAsync(akademikPersonelId);
-            return new SuccessDataResult<List<AkademikPersonelMusaitlik>>(kayitlar);
+            var dtoList = kayitlar.Select(MapToResponseDto).ToList();
+            return new SuccessDataResult<List<MusaitlikResponseDto>>(dtoList);
         }
 
         /// <summary>
         /// Akademik personelin belirli ay için müsaitlik takvimini getirir
         /// </summary>
-        public async Task<IDataResult<List<AkademikPersonelMusaitlik>>> GetTakvimAsync(
+        public async Task<IDataResult<List<MusaitlikResponseDto>>> GetTakvimAsync(
             int akademikPersonelId,
             int yil,
             int ay)
         {
-            // Ayın ilk ve son günü
             var ayBaslangic = new DateTime(yil, ay, 1);
             var ayBitis = ayBaslangic.AddMonths(1).AddDays(-1);
 
             var kayitlar = await _musaitlikDal.GetByDateRangeAsync(akademikPersonelId, ayBaslangic, ayBitis);
-            return new SuccessDataResult<List<AkademikPersonelMusaitlik>>(kayitlar);
+            var dtoList = kayitlar.Select(MapToResponseDto).ToList();
+            return new SuccessDataResult<List<MusaitlikResponseDto>>(dtoList);
         }
 
         /// <summary>
         /// Belirli tarih aralığındaki müsaitlik kayıtlarını getirir
         /// </summary>
-        public async Task<IDataResult<List<AkademikPersonelMusaitlik>>> GetByDateRangeAsync(
+        public async Task<IDataResult<List<MusaitlikResponseDto>>> GetByDateRangeAsync(
             int akademikPersonelId,
             DateTime baslangic,
             DateTime bitis)
         {
             var kayitlar = await _musaitlikDal.GetByDateRangeAsync(akademikPersonelId, baslangic, bitis);
-            return new SuccessDataResult<List<AkademikPersonelMusaitlik>>(kayitlar);
+            var dtoList = kayitlar.Select(MapToResponseDto).ToList();
+            return new SuccessDataResult<List<MusaitlikResponseDto>>(dtoList);
         }
 
         #endregion
@@ -137,7 +222,6 @@ namespace Business.Concrete
 
         /// <summary>
         /// Belirli tarih ve saatte müsait olan personelleri getirir
-        /// Sınav gözetmen ataması için kullanılır
         /// </summary>
         public async Task<IDataResult<List<AkademikPersonel>>> GetMusaitPersonellerAsync(
             DateTime tarih,
@@ -188,21 +272,40 @@ namespace Business.Concrete
             switch (musaitlik.TekrarTipi)
             {
                 case TekrarTipiEnum.Tekil:
-                    // Tekil kayıtlarda TekrarGunu kullanılmaz
                     musaitlik.TekrarGunu = null;
                     break;
 
                 case TekrarTipiEnum.Haftalik:
-                    // Haftalık tekrar: Başlangıç tarihinin haftanın günü
-                    // DayOfWeek: 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
                     musaitlik.TekrarGunu = (int)musaitlik.BaslangicTarihi.DayOfWeek;
                     break;
 
                 case TekrarTipiEnum.Aylik:
-                    // Aylık tekrar: Başlangıç tarihinin ayın günü
                     musaitlik.TekrarGunu = musaitlik.BaslangicTarihi.Day;
                     break;
             }
+        }
+
+        /// <summary>
+        /// Entity'yi ResponseDto'ya dönüştürür
+        /// </summary>
+        private MusaitlikResponseDto MapToResponseDto(AkademikPersonelMusaitlik entity)
+        {
+            return new MusaitlikResponseDto
+            {
+                Id = entity.Id,
+                AkademikPersonelId = entity.AkademikPersonelId,
+                BaslangicTarihi = entity.BaslangicTarihi,
+                BitisTarihi = entity.BitisTarihi,
+                BaslangicSaati = entity.BaslangicSaati,
+                BitisSaati = entity.BitisSaati,
+                TekrarTipi = (int)entity.TekrarTipi,
+                TekrarGunu = entity.TekrarGunu,
+                IsMusait = entity.IsMusait,
+                Neden = entity.Neden,
+                Aciklama = entity.Aciklama,
+                CreatedDate = entity.CreatedDate,
+                UpdatedDate = entity.UpdatedDate
+            };
         }
 
         #endregion
