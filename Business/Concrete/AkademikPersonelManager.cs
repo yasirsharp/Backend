@@ -43,8 +43,10 @@ namespace Business.Concrete
 
             var userName = $"{initials}{number}";
 
-
-            HashingHelper.CreatePasswordHash(userName, out var hash, out var salt);
+            // Önceden parola kullanıcı adıyla aynıydı (baş harfler + 4 rakam) ve kolayca tahmin edilebiliyordu.
+            // Artık kriptografik olarak rastgele bir geçici parola üretilir ve yöneticiye bir kez gösterilir.
+            var temporaryPassword = PasswordGenerator.Generate();
+            HashingHelper.CreatePasswordHash(temporaryPassword, out var hash, out var salt);
 
             var user = new Core.Entities.Concrete.User
             {
@@ -66,7 +68,8 @@ namespace Business.Concrete
             };
 
             await _akademikPersonelDal.AddWithUserAsync(user, akademikPersonel, claim);
-            return new SuccessResult(Messages.AkademikPersonelAdded);
+            return new SuccessResult(
+                $"{Messages.AkademikPersonelAdded} Kullanıcı adı: {userName}, geçici parola: {temporaryPassword}");
         }
 
         public async Task<IResult> Update(AkademikPersonel akademikPersonel)

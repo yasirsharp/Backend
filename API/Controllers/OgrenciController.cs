@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
+using Core.Extensions;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 
@@ -11,6 +14,7 @@ namespace API.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class OgrenciController : ControllerBase
     {
         private readonly IOgrenciService _ogrenciService;
@@ -24,6 +28,7 @@ namespace API.Controllers
         /// Tüm öğrencileri getirir
         /// </summary>
         [HttpGet]
+        [Authorize(Roles = Roles.Personel)]
         public IActionResult GetAll()
         {
             var result = _ogrenciService.GetList();
@@ -41,6 +46,7 @@ namespace API.Controllers
         /// <param name="sortOrder">Sıralama yönü (asc, desc)</param>
         /// <param name="searchTerm">Arama terimi (ad, soyad, öğrenci no)</param>
         [HttpGet("paged")]
+        [Authorize(Roles = Roles.Personel)]
         public IActionResult GetPaged(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
@@ -67,6 +73,7 @@ namespace API.Controllers
         /// ID'ye göre öğrenci getirir
         /// </summary>
         [HttpGet("{id}")]
+        [Authorize(Roles = Roles.Personel)]
         public IActionResult GetById(int id)
         {
             var result = _ogrenciService.GetById(id);
@@ -82,6 +89,10 @@ namespace API.Controllers
         [HttpGet("by-user-id/{userId}")]
         public IActionResult GetByUserId(int userId)
         {
+            // Öğrenci sadece kendi kaydını görebilir; personel herkesinkini görebilir
+            if (User.GetUserId() != userId && !User.IsInAnyRole(Roles.Personel))
+                return Forbid();
+
             var result = _ogrenciService.GetByUserId(userId);
             if (result.Success)
                 return Ok(result);
@@ -92,6 +103,7 @@ namespace API.Controllers
         /// Öğrenci numarasına göre öğrenci getirir
         /// </summary>
         [HttpGet("by-ogrenci-no/{ogrenciNo}")]
+        [Authorize(Roles = Roles.Personel)]
         public IActionResult GetByOgrenciNo(string ogrenciNo)
         {
             var result = _ogrenciService.GetByOgrenciNo(ogrenciNo);
@@ -104,6 +116,7 @@ namespace API.Controllers
         /// Yeni öğrenci ekler
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Add(Ogrenci ogrenci)
         {
             var result = _ogrenciService.Add(ogrenci);
@@ -116,6 +129,7 @@ namespace API.Controllers
         /// Öğrenci bilgilerini günceller
         /// </summary>
         [HttpPut]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Update(Ogrenci ogrenci)
         {
             var result = _ogrenciService.Update(ogrenci);
@@ -128,6 +142,7 @@ namespace API.Controllers
         /// Öğrenci siler
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Delete(int id)
         {
             var ogrenci = _ogrenciService.GetById(id);

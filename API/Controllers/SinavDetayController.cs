@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
@@ -8,6 +10,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class SinavDetayController : ControllerBase
     {
         private readonly ISinavDetayService _sinavDetayService;
@@ -174,24 +177,27 @@ namespace API.Controllers
         }
 
         [HttpPost]
-        public IActionResult Add(SinavKayitDTO sinavKayitDTO)
+        [Authorize(Roles = Roles.Planlayici)]
+        public async Task<IActionResult> Add(SinavKayitDTO sinavKayitDTO)
         {
-            var result = _sinavDetayService.Add(sinavKayitDTO);
+            var result = await _sinavDetayService.Add(sinavKayitDTO);
             if (result.Success)
                 return Ok(result); // 200 OK (diğer endpoint'lerle tutarlı)
             return BadRequest(result);
         }
 
         [HttpPut]
-        public IActionResult Update(SinavGuncelleDTO sinavGuncelleDTO)
+        [Authorize(Roles = Roles.Planlayici)]
+        public async Task<IActionResult> Update(SinavGuncelleDTO sinavGuncelleDTO)
         {
-            var result = _sinavDetayService.Update(sinavGuncelleDTO);
+            var result = await _sinavDetayService.Update(sinavGuncelleDTO);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
             var result = _sinavDetayService.Delete(new SinavDetay { Id = id });

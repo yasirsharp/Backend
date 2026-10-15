@@ -1,11 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Business.Abstract;
+using Business.Constants;
+using Core.Utilities.Results;
 using Entity.DTOs;
 
 namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -16,6 +21,8 @@ namespace API.Controllers
         }
 
         [HttpPost("login")]
+        [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         public IActionResult Login(UserForLoginDto userForLoginDto)
         {
             var userToLogin = _authService.Login(userForLoginDto);
@@ -29,7 +36,12 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
+        /// <summary>
+        /// Genel kayıt. Kayıt olan kullanıcıya hiçbir rol atanmaz; rol ataması yönetici tarafından yapılır.
+        /// </summary>
         [HttpPost("register")]
+        [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         public IActionResult Register(UserForRegisterDto userForRegisterDto)
         {
             var userExists = _authService.UserExists(userForRegisterDto.Email);
@@ -48,9 +60,11 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// TEST için öğrenci kayıt endpoint'i
+        /// Öğrenci hesabı oluşturur (sadece yönetici). Önceden herkese açıktı ve istemciden gelen
+        /// bölüm bilgisiyle "ogrenci" rolü veriyordu.
         /// </summary>
         [HttpPost("register-ogrenci")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult RegisterOgrenci(OgrenciRegisterDto ogrenciRegisterDto)
         {
             var userExists = _authService.UserExists(ogrenciRegisterDto.Email);
@@ -61,32 +75,26 @@ namespace API.Controllers
             if (!registerResult.Success)
                 return BadRequest(registerResult);
 
-            var result = _authService.CreateAccessToken(registerResult.Data);
-            if (result.Success)
-                return Ok(result);
-
-            return BadRequest(result);
+            return Ok(new SuccessDataResult<UserDto>(UserDto.FromEntity(registerResult.Data), registerResult.Message));
         }
 
         /// <summary>
-        /// TEST için akademik personel kayıt endpoint'i
+        /// Akademik personel hesabı oluşturur (sadece yönetici). Önceden herkese açıktı ve
+        /// çağıran herkese "akademik.personel" rolü veriyordu.
         /// </summary>
         [HttpPost("register-akademik-personel")]
-        public IActionResult RegisterAkademikPersonel(AkademikPersonelRegisterDto akademikPersonelRegisterDto)
+        [Authorize(Roles = Roles.Yonetici)]
+        public async Task<IActionResult> RegisterAkademikPersonel(AkademikPersonelRegisterDto akademikPersonelRegisterDto)
         {
             var userExists = _authService.UserExists(akademikPersonelRegisterDto.Email);
             if (!userExists.Success)
                 return BadRequest(userExists);
 
-            var registerResult = _authService.RegisterAkademikPersonel(akademikPersonelRegisterDto);
+            var registerResult = await _authService.RegisterAkademikPersonelAsync(akademikPersonelRegisterDto);
             if (!registerResult.Success)
                 return BadRequest(registerResult);
 
-            var result = _authService.CreateAccessToken(registerResult.Data);
-            if (result.Success)
-                return Ok(result);
-
-            return BadRequest(result);
+            return Ok(new SuccessDataResult<UserDto>(UserDto.FromEntity(registerResult.Data), registerResult.Message));
         }
     }
-} 
+}

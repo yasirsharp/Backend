@@ -22,9 +22,10 @@ namespace DataAccess.Abstract
         List<SinavDetayDTO> GetSinavDetailsByDateRangeAndDerslik(DateTime startDate, DateTime endDate, int derslikId);
         List<SinavDetayDTO> GetSinavDetailsByDateRangeAndAkademikPersonel(DateTime startDate, DateTime endDate, int akademikPersonelId);
         SinavDetayDTO GetDetail(int sinavDetayId);
-        SinavDetay ExistSinav(List<int> derslikIdleri, List<int> gozetmenIdleri, int akademikPersonelId, TimeOnly SinavBaslangicSaati, TimeOnly SinavBitisSaati, DateTime sinavTarihi);
-        void AddWithTransaction(SinavKayitDTO sinavKayitDTO);
-        void UpdateWithTransaction(SinavGuncelleDTO sinavKayitDTO);
+        /// <summary>Çakışma yoksa sınavı ekler ve null döner; çakışma varsa eklemez ve çakışan sınavı döner.</summary>
+        SinavDetay? AddIfNoConflict(SinavKayitDTO sinavKayitDTO);
+        /// <summary>Çakışma yoksa sınavı günceller ve null döner; çakışma varsa güncellemez ve çakışan sınavı döner.</summary>
+        SinavDetay? UpdateIfNoConflict(SinavGuncelleDTO sinavGuncelleDTO);
         void DeleteWithTransaction(SinavDetay sinavDetay);
     }
 }

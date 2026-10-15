@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
@@ -7,6 +9,7 @@ namespace API.Controllers
 {
     [Route("api/dbap")]
     [ApiController]
+    [Authorize]
     public class DBAPController : ControllerBase
     {
         private readonly IDBAPService _dbapService;
@@ -94,6 +97,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Add(DersBolumAkademikPersonel dersBolumAkademikPersonel)
         {
             var result = _dbapService.Add(dersBolumAkademikPersonel);
@@ -103,6 +107,7 @@ namespace API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Update(DersBolumAkademikPersonel dersBolumAkademikPersonel)
         {
             var result = _dbapService.Update(dersBolumAkademikPersonel);
@@ -112,6 +117,7 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
             var dbap = _dbapService.GetById(id).Data;

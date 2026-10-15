@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
@@ -8,6 +10,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DerslikController : ControllerBase
     {
         private readonly IDerslikService _derslikService;
@@ -142,6 +145,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Add(Derslik derslik)
         {
             var result = _derslikService.Add(derslik);
@@ -151,6 +155,7 @@ namespace API.Controllers
         }
 
         [HttpPost("with-bolumler")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult AddWithBolumler([FromBody] DerslikEkleDTO derslikEkleDto)
         {
             var result = _derslikService.AddDerslikWithBolumler(derslikEkleDto);
@@ -160,6 +165,7 @@ namespace API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Update(Derslik derslik)
         {
             var result = _derslikService.Update(derslik);
@@ -169,6 +175,7 @@ namespace API.Controllers
         }
 
         [HttpPut("with-bolumler")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult UpdateWithBolumler([FromBody] DerslikGuncelleDTO derslikGuncelleDto)
         {
             var result = _derslikService.UpdateDerslikWithBolumler(derslikGuncelleDto);
@@ -178,6 +185,7 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
             var derslik = _derslikService.GetById(id).Data;
@@ -194,6 +202,7 @@ namespace API.Controllers
         /// Sadece belirtilen bölümden derslik ilişkisini sil
         /// </summary>
         [HttpDelete("{derslikId}/bolum/{bolumId}")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult RemoveFromBolum(int derslikId, int bolumId)
         {
             var result = _derslikService.RemoveDerslikFromBolum(derslikId, bolumId);

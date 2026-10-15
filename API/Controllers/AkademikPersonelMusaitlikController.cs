@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
+using Business.Constants;
+using Core.Extensions;
 using Entity.DTOs;
 using System;
 using System.Collections.Generic;
@@ -14,14 +16,18 @@ namespace API.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = Roles.Personel)]
     public class AkademikPersonelMusaitlikController : ControllerBase
     {
         private readonly IAkademikPersonelMusaitlikService _musaitlikService;
+        private readonly IAkademikPersonelService _akademikPersonelService;
 
-        public AkademikPersonelMusaitlikController(IAkademikPersonelMusaitlikService musaitlikService)
+        public AkademikPersonelMusaitlikController(
+            IAkademikPersonelMusaitlikService musaitlikService,
+            IAkademikPersonelService akademikPersonelService)
         {
             _musaitlikService = musaitlikService;
+            _akademikPersonelService = akademikPersonelService;
         }
 
         #region CRUD Endpoint'leri
@@ -32,6 +38,9 @@ namespace API.Controllers
         [HttpPost]
         public async Task<IActionResult> Add([FromBody] MusaitlikCreateDto dto)
         {
+            if (!CanManagePersonel(dto.AkademikPersonelId))
+                return Forbid();
+
             var result = await _musaitlikService.AddAsync(dto);
             if (result.Success)
                 return Created("", result);
@@ -44,6 +53,9 @@ namespace API.Controllers
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] MusaitlikUpdateDto dto)
         {
+            if (!CanManageRecord(dto.Id) || !CanManagePersonel(dto.AkademikPersonelId))
+                return Forbid();
+
             var result = await _musaitlikService.UpdateAsync(dto);
             if (result.Success)
                 return Ok(result);
@@ -56,6 +68,9 @@ namespace API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            if (!CanManageRecord(id))
+                return Forbid();
+
             var result = await _musaitlikService.DeleteAsync(id);
             if (result.Success)
                 return Ok(result);
@@ -68,6 +83,9 @@ namespace API.Controllers
         [HttpPost("batch-delete")]
         public async Task<IActionResult> DeleteBatch([FromBody] List<int> ids)
         {
+            if (ids == null || ids.Any(id => !CanManageRecord(id)))
+                return Forbid();
+
             var result = await _musaitlikService.DeleteBatchAsync(ids);
             if (result.Success)
                 return Ok(result);
@@ -218,6 +236,39 @@ namespace API.Controllers
                 });
             }
             return BadRequest(result);
+        }
+
+        #endregion
+
+        #region Yetki Kontrolleri
+
+        /// <summary>
+        /// Planlama rolleri tüm personelin müsaitliğini yönetebilir; akademik personel sadece kendisininkini.
+        /// </summary>
+        private bool CanManagePersonel(int akademikPersonelId)
+        {
+            if (User.IsInAnyRole(Roles.Planlayici))
+                return true;
+
+            var userId = User.GetUserId();
+            if (userId == null)
+                return false;
+
+            var personel = _akademikPersonelService.GetByUserId(userId.Value);
+            return personel.Success && personel.Data != null && personel.Data.Id == akademikPersonelId;
+        }
+
+        /// <summary>
+        /// Var olan bir müsaitlik kaydının sahibini kontrol eder. Kayıt yoksa servis kendi hatasını döndürsün diye true döner
+        /// (sadece planlama rolleri için); diğer kullanıcılar için false.
+        /// </summary>
+        private bool CanManageRecord(int musaitlikId)
+        {
+            var record = _musaitlikService.GetById(musaitlikId);
+            if (!record.Success || record.Data == null)
+                return User.IsInAnyRole(Roles.Planlayici);
+
+            return CanManagePersonel(record.Data.AkademikPersonelId);
         }
 
         #endregion

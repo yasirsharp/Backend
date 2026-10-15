@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
+using Business.Constants;
+using Core.Extensions;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using Entity.DTOs;
@@ -11,6 +13,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AnnouncementController : ControllerBase
     {
         private readonly IAnnouncementService _announcementService;
@@ -24,7 +27,7 @@ namespace API.Controllers
         /// Tüm duyuruları getirir (Admin için)
         /// </summary>
         [HttpGet]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetAll()
         {
             var result = _announcementService.GetList();
@@ -37,7 +40,7 @@ namespace API.Controllers
         /// Sayfalanmış duyuru listesi
         /// </summary>
         [HttpGet("paged")]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetPaged(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
@@ -77,6 +80,7 @@ namespace API.Controllers
         /// Aktif duyuruları getirir (herkes için)
         /// </summary>
         [HttpGet("active")]
+        [AllowAnonymous]
         public IActionResult GetActive()
         {
             var result = _announcementService.GetActiveAnnouncements();
@@ -158,7 +162,7 @@ namespace API.Controllers
         /// Yeni duyuru oluşturur (Admin)
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = "super.admin")]
+        [Authorize(Roles = Roles.SuperAdmin)]
         public IActionResult Add([FromBody] AnnouncementCreateDto dto)
         {
             var announcement = new Announcement
@@ -172,7 +176,7 @@ namespace API.Controllers
                 PublishDate = dto.PublishDate,
                 ExpiryDate = dto.ExpiryDate,
                 ShowAsPopup = dto.ShowAsPopup,
-                CreatedBy = dto.CreatedBy,
+                CreatedBy = User.GetUserId() ?? dto.CreatedBy,
                 CreatedDate = DateTime.Now,
                 IsActive = dto.IsActive
             };
@@ -189,7 +193,7 @@ namespace API.Controllers
         /// Görevli Personel: Sadece kendi bölümüne gönderebilir
         /// </summary>
         [HttpPost("create")]
-        [Authorize(Roles = "Admin,super.admin,gorevli.personel")]
+        [Authorize(Roles = Roles.Yonetici + "," + Roles.GorevliPersonel)]
         public IActionResult CreateWithPermission([FromBody] AnnouncementCreateDto dto)
         {
             // Token'dan bilgileri al
@@ -212,7 +216,7 @@ namespace API.Controllers
                 ExpiryDate = dto.ExpiryDate,
                 ShowAsPopup = dto.ShowAsPopup,
                 IsActive = dto.IsActive,
-                CreatedBy = dto.CreatedBy,
+                CreatedBy = User.GetUserId() ?? dto.CreatedBy,
                 CreatedDate = DateTime.Now
             };
 
@@ -226,7 +230,7 @@ namespace API.Controllers
         /// Duyuru günceller (Admin)
         /// </summary>
         [HttpPut]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Update([FromBody] AnnouncementUpdateDto dto)
         {
             // Önce mevcut duyuruyu getir
@@ -258,7 +262,7 @@ namespace API.Controllers
         /// Duyuruyu siler (Admin)
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Delete(int id)
         {
             var announcement = _announcementService.GetById(id);
@@ -278,6 +282,10 @@ namespace API.Controllers
         [Authorize]
         public IActionResult MarkAsRead([FromQuery] int announcementId, [FromQuery] int userId)
         {
+            // Kullanıcı sadece kendi adına "okundu" işaretleyebilir
+            if (User.GetUserId() != userId)
+                return Forbid();
+
             var result = _announcementService.MarkAsRead(announcementId, userId);
             if (result.Success)
                 return Ok(result);
@@ -291,6 +299,9 @@ namespace API.Controllers
         [Authorize]
         public IActionResult HasUserRead([FromQuery] int announcementId, [FromQuery] int userId)
         {
+            if (User.GetUserId() != userId && !User.IsInAnyRole(Roles.Yonetici))
+                return Forbid();
+
             var result = _announcementService.HasUserRead(announcementId, userId);
             if (result.Success)
                 return Ok(result);

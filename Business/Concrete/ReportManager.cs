@@ -92,7 +92,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<byte[]>($"Rapor oluşturulurken hata: {ex.Message}");
+                return new ErrorDataResult<byte[]>(ExceptionLogger.Log(ex, "Rapor oluşturulurken hata."));
             }
         }
 
@@ -266,7 +266,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<byte[]>($"Rapor oluşturulurken hata: {ex.Message}");
+                return new ErrorDataResult<byte[]>(ExceptionLogger.Log(ex, "Rapor oluşturulurken hata."));
             }
         }
 
@@ -310,7 +310,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<byte[]>($"Rapor oluşturulurken hata: {ex.Message}");
+                return new ErrorDataResult<byte[]>(ExceptionLogger.Log(ex, "Rapor oluşturulurken hata."));
             }
         }
     }

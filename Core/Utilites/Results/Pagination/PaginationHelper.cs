@@ -89,10 +89,11 @@ namespace Core.Utilites.Results.Pagination
             if (string.IsNullOrWhiteSpace(sortBy))
                 return query;
 
-            // Property'nin var olup olmadığını kontrol et
-            var property = typeof(T).GetProperty(sortBy);
-            if (property == null)
-                return query; // Property yoksa sıralama yapma
+            // Property'nin var olup olmadığını kontrol et (büyük/küçük harf duyarsız)
+            var property = typeof(T).GetProperty(sortBy,
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
+            if (property == null || !IsSortable(property))
+                return query; // Property yoksa veya sıralanamazsa sıralama yapma
 
             // Expression tree oluştur
             var parameter = Expression.Parameter(typeof(T), "x");
@@ -110,6 +111,21 @@ namespace Core.Utilites.Results.Pagination
             );
 
             return query.Provider.CreateQuery<T>(resultExpression);
+        }
+
+        /// <summary>
+        /// Sadece basit tipteki alanlara göre sıralamaya izin verilir. Parola hash/salt gibi
+        /// hassas alanlara göre sıralama, değerlerin dışarıdan tahmin edilmesine yardım edebileceği için engellenir.
+        /// </summary>
+        private static bool IsSortable(System.Reflection.PropertyInfo property)
+        {
+            if (property.Name.Contains("Password", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            return type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal) ||
+                   type == typeof(DateTime) || type == typeof(DateOnly) || type == typeof(TimeOnly) ||
+                   type == typeof(TimeSpan) || type == typeof(Guid);
         }
     }
 }

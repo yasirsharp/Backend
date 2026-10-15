@@ -25,7 +25,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorResult($"Yetki eklenirken bir hata oluştu: {ex.Message}");
+                return new ErrorResult(ExceptionLogger.Log(ex, "Yetki eklenirken bir hata oluştu."));
             }
         }
 
@@ -38,7 +38,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorResult($"Yetki silinirken bir hata oluştu: {ex.Message}");
+                return new ErrorResult(ExceptionLogger.Log(ex, "Yetki silinirken bir hata oluştu."));
             }
         }
 
@@ -51,7 +51,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<List<OperationClaim>>($"Yetkiler listelenirken bir hata oluştu: {ex.Message}");
+                return new ErrorDataResult<List<OperationClaim>>(ExceptionLogger.Log(ex, "Yetkiler listelenirken bir hata oluştu."));
             }
         }
 
@@ -68,7 +68,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<OperationClaim>($"Yetki getirilirken bir hata oluştu: {ex.Message}");
+                return new ErrorDataResult<OperationClaim>(ExceptionLogger.Log(ex, "Yetki getirilirken bir hata oluştu."));
             }
         }
 
@@ -81,7 +81,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorResult($"Yetki güncellenirken bir hata oluştu: {ex.Message}");
+                return new ErrorResult(ExceptionLogger.Log(ex, "Yetki güncellenirken bir hata oluştu."));
             }
         }
     }

@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>duzce-universite-sinav-takvimi-api</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

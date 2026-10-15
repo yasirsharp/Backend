@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
@@ -8,6 +10,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AkademikPersonelController : ControllerBase
     {
         private readonly IAkademikPersonelService _akademikPersonelService;
@@ -88,6 +91,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Yonetici)]
         public async Task<IActionResult> Add(AkademikPersonel akademikPersonel)
         {
             var result = await _akademikPersonelService.Add(akademikPersonel);
@@ -98,6 +102,7 @@ namespace API.Controllers
             return BadRequest(result);
         }
         [HttpPut]
+        [Authorize(Roles = Roles.Yonetici)]
         public async Task<IActionResult> Update(AkademikPersonel akademikPersonel)
         {
             var result = await _akademikPersonelService.Update(akademikPersonel);
@@ -109,6 +114,7 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Yonetici)]
         public async Task<IActionResult> Delete(int id)
         {
             var akademikPersonelResult = _akademikPersonelService.GetById(id);

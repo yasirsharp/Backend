@@ -41,7 +41,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorResult($"Kullanıcı yetkisi eklenirken bir hata oluştu: {ex.Message}");
+                return new ErrorResult(ExceptionLogger.Log(ex, "Kullanıcı yetkisi eklenirken bir hata oluştu."));
             }
         }
 
@@ -80,7 +80,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorResult($"Kullanıcı yetkisi silinirken bir hata oluştu: {ex.Message}");
+                return new ErrorResult(ExceptionLogger.Log(ex, "Kullanıcı yetkisi silinirken bir hata oluştu."));
             }
         }
 
@@ -93,7 +93,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<List<UserOperationClaim>>($"Kullanıcı yetkileri listelenirken bir hata oluştu: {ex.Message}");
+                return new ErrorDataResult<List<UserOperationClaim>>(ExceptionLogger.Log(ex, "Kullanıcı yetkileri listelenirken bir hata oluştu."));
             }
         }
 
@@ -110,7 +110,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<UserOperationClaim>($"Kullanıcı yetkisi getirilirken bir hata oluştu: {ex.Message}");
+                return new ErrorDataResult<UserOperationClaim>(ExceptionLogger.Log(ex, "Kullanıcı yetkisi getirilirken bir hata oluştu."));
             }
         }
 
@@ -123,7 +123,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<List<UserOperationClaim>>($"Kullanıcı yetkileri listelenirken bir hata oluştu: {ex.Message}");
+                return new ErrorDataResult<List<UserOperationClaim>>(ExceptionLogger.Log(ex, "Kullanıcı yetkileri listelenirken bir hata oluştu."));
             }
         }
         public IResult Update(UserOperationClaim userOperationClaim)
@@ -135,7 +135,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorResult($"Kullanıcı yetkisi güncellenirken bir hata oluştu: {ex.Message}");
+                return new ErrorResult(ExceptionLogger.Log(ex, "Kullanıcı yetkisi güncellenirken bir hata oluştu."));
             }
         }
     }

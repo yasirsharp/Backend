@@ -9,6 +9,7 @@ namespace API.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ReportController : ControllerBase
     {
         private readonly IReportService _reportService;

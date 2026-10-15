@@ -38,11 +38,22 @@ namespace DataAccess.Concrete.EntityFramework
         // Akademik Personel Müsaitlik Sistemi
         public DbSet<AkademikPersonelMusaitlik> AkademikPersonelMusaitlik { get; set; }
 
+        /// <summary>
+        /// Uygulama açılışında "ConnectionStrings:DefaultConnection" ayarından atanır.
+        /// Bağlantı bilgisi (özellikle parola) koda veya repoya yazılmamalıdır; User Secrets ya da
+        /// ConnectionStrings__DefaultConnection ortam değişkeni kullanılmalıdır.
+        /// </summary>
+        public static string? ConnectionString { get; set; }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            //optionsBuilder.UseSqlServer(@"Server=172.16.4.4; Database=ysr.sinav_takvimi; User Id=yasir; Password=Yasir0308; Trust Server Certificate=True;");
-            //optionsBuilder.UseSqlServer(@"Server=YASIR\DUPROJECTS; Database=DuzceUniversite; Trust Server Certificate=True; User Id = sa; Password = 123456Aa");
-            optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=DuzceUniversitesiSinavTakvimi;Trusted_Connection=true");
+            if (optionsBuilder.IsConfigured)
+                return;
+
+            if (string.IsNullOrWhiteSpace(ConnectionString))
+                throw new InvalidOperationException("Veritabanı bağlantı dizesi yapılandırılmamış (ConnectionStrings:DefaultConnection).");
+
+            optionsBuilder.UseSqlServer(ConnectionString);
         }
     }
 } 
