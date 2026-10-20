@@ -22,7 +22,7 @@ namespace Business.BusinessAspects.Autofac
 
         protected override void OnBefore(IInvocation invocation)
         {
-            var roleClaims = _httpContextAccessor.HttpContext.User.ClaimRoles();
+            var roleClaims = _httpContextAccessor.HttpContext?.User.ClaimRoles() ?? new List<string>();
             foreach (var role in _roles)
             {
                 if (roleClaims.Contains(role))
@@ -30,7 +30,7 @@ namespace Business.BusinessAspects.Autofac
                     return;
                 }
             }
-            throw new Exception(Messages.AuthorizationDenied);
+            throw new UnauthorizedAccessException(Messages.AuthorizationDenied);
         }
     }
 }

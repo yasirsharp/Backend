@@ -77,27 +77,49 @@ namespace Business.Concrete
             );
         }
         
-        /// <summary>
-        /// 🆕 Kullanıcı için geçerli duyuruları getir (rol ve bölüm kontrolü ile)
-        /// </summary>
-        public IDataResult<List<Announcement>> GetByUserId(string targetAudience, int? userBolumId)
+        public IDataResult<List<Announcement>> GetForUser(IReadOnlyCollection<string> audiences,
+            IReadOnlyCollection<int> bolumIds, int userId, bool popupOnly)
         {
             var now = DateTime.Now;
-            var announcements = _announcementDal.GetAll(a =>
-                a.IsActive &&
-                a.PublishDate <= now &&
-                (a.ExpiryDate == null || a.ExpiryDate > now) &&
-                (a.TargetAudience == targetAudience || a.TargetAudience == "all") &&
-                // Bölüm kontrolü: NULL ise herkese, değilse sadece o bölüme
-                (a.TargetBolumId == null || a.TargetBolumId == userBolumId)
-            ).OrderByDescending(a => a.Priority)
-              .ThenByDescending(a => a.PublishDate)
-              .ToList();
+            var kitleler = audiences.Append(AnnouncementAudiences.All).Distinct().ToList();
+            var bolumler = bolumIds.ToList();
 
-            return new SuccessDataResult<List<Announcement>>(
-                announcements,
-                $"{announcements.Count} duyuru bulundu."
-            );
+            var announcements = _announcementDal.GetAll(a =>
+                    a.IsActive &&
+                    (!popupOnly || a.ShowAsPopup) &&
+                    a.PublishDate <= now &&
+                    (a.ExpiryDate == null || a.ExpiryDate > now) &&
+                    kitleler.Contains(a.TargetAudience) &&
+                    // Bölüm seçilmemişse herkese, seçilmişse sadece o bölümdekilere
+                    (a.TargetBolumId == null || bolumler.Contains(a.TargetBolumId.Value)))
+                .OrderByDescending(a => a.Priority)
+                .ThenByDescending(a => a.PublishDate)
+                .ToList();
+
+            if (popupOnly)
+            {
+                var okunanlar = _announcementReadStatusDal.GetReadAnnouncementIds(userId).ToHashSet();
+                announcements = announcements.Where(a => !okunanlar.Contains(a.Id)).ToList();
+            }
+
+            return new SuccessDataResult<List<Announcement>>(announcements, $"{announcements.Count} duyuru bulundu.");
+        }
+
+        public IResult Validate(Announcement announcement)
+        {
+            if (string.IsNullOrWhiteSpace(announcement.Title) || announcement.Title.Length > 200)
+                return new ErrorResult("Başlık boş olamaz ve en fazla 200 karakter olabilir.");
+            if (string.IsNullOrWhiteSpace(announcement.Content))
+                return new ErrorResult("Duyuru içeriği boş olamaz.");
+            if (!AnnouncementTypes.Values.Contains(announcement.Type))
+                return new ErrorResult("Geçersiz duyuru türü.");
+            if (!AnnouncementAudiences.Values.Contains(announcement.TargetAudience))
+                return new ErrorResult("Geçersiz hedef kitle.");
+            if (announcement.Priority is < 0 or > 2)
+                return new ErrorResult("Öncelik 0 (normal), 1 (önemli) veya 2 (acil) olmalıdır.");
+            if (announcement.ExpiryDate.HasValue && announcement.ExpiryDate <= announcement.PublishDate)
+                return new ErrorResult("Bitiş tarihi yayın tarihinden sonra olmalıdır.");
+            return new SuccessResult();
         }
 
         public IDataResult<List<Announcement>> GetPopupAnnouncements(string targetAudience)
@@ -121,63 +143,12 @@ namespace Business.Concrete
             );
         }
         
-        /// <summary>
-        /// 🆕 Popup duyuruları getir (bölüm kontrolü ile)
-        /// </summary>
-        public IDataResult<List<Announcement>> GetPopupAnnouncementsByUser(string targetAudience, int? userBolumId)
-        {
-            var now = DateTime.Now;
-            
-            var popupAnnouncements = _announcementDal.GetAll(a =>
-                a.IsActive &&
-                a.ShowAsPopup &&
-                a.PublishDate <= now &&
-                (a.ExpiryDate == null || a.ExpiryDate > now) &&
-                (a.TargetAudience == targetAudience || a.TargetAudience == "all") &&
-                // Bölüm kontrolü
-                (a.TargetBolumId == null || a.TargetBolumId == userBolumId)
-            ).OrderByDescending(a => a.Priority)
-              .ThenByDescending(a => a.PublishDate)
-              .ToList();
-
-            return new SuccessDataResult<List<Announcement>>(
-                popupAnnouncements,
-                $"{popupAnnouncements.Count} popup duyuru bulundu."
-            );
-        }
-
         public IResult Add(Announcement announcement)
         {
             _announcementDal.Add(announcement);
             return new SuccessResult(Messages.AnnouncementAdded);
         }
         
-        /// <summary>
-        /// 🆕 Duyuru ekle (yetki kontrolü ile)
-        /// Görevli Personel sadece kendi bölümüne duyuru gönderebilir
-        /// </summary>
-        public IResult AddWithPermission(Announcement announcement, string userRole, int? userBolumId)
-        {
-            // Görevli Personel kontrolü
-            if (userRole == "gorevli.personel")
-            {
-                // Görevli Personel sadece kendi bölümüne duyuru gönderebilir
-                if (announcement.TargetBolumId == null)
-                {
-                    return new ErrorResult("Görevli Personel tüm bölümlere duyuru gönderemez. Lütfen kendi bölümünüzü seçin.");
-                }
-                
-                if (announcement.TargetBolumId != userBolumId)
-                {
-                    return new ErrorResult("Sadece kendi bölümünüze duyuru gönderebilirsiniz.");
-                }
-            }
-            
-            // Admin/Super.Admin herhangi bir bölüme gönderebilir
-            _announcementDal.Add(announcement);
-            return new SuccessResult(Messages.AnnouncementAdded);
-        }
-
         public IResult Update(Announcement announcement)
         {
             var existingAnnouncement = _announcementDal.Get(a => a.Id == announcement.Id);
@@ -205,7 +176,7 @@ namespace Business.Concrete
             }
 
             // Daha önce okunmuş mu kontrol et
-            if (_announcementReadStatusDal.Exists(userId, announcementId))
+            if (_announcementReadStatusDal.Exists(announcementId, userId))
             {
                 return new SuccessResult("Duyuru zaten okunmuş olarak işaretli.");
             }
@@ -224,7 +195,7 @@ namespace Business.Concrete
 
         public IDataResult<bool> HasUserRead(int announcementId, int userId)
         {
-            var hasRead = _announcementReadStatusDal.Exists(userId, announcementId);
+            var hasRead = _announcementReadStatusDal.Exists(announcementId, userId);
             return new SuccessDataResult<bool>(hasRead);
         }
 

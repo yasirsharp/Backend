@@ -8,7 +8,8 @@ namespace Entity.Concrete
         public int Id { get; set; }
         public int DerslikId { get; set; }
         public int SinavDetayId { get; set; }
-        public int GozetmenId { get; set; }
+        /// <summary>Gözetmen atanmamışsa null</summary>
+        public int? GozetmenId { get; set; }
 
         // Audit Alanları (IEntity'den gelir)
         public DateTime CreatedDate { get; set; }

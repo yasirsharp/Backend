@@ -362,3 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /Frontend2
+
+# Sınav Takvimi: yayın çıktısı, derlenmiş frontend ve loglar
+/publish/
+/API/wwwroot/
+logs/

@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Frontend1 (eski MVC projesi) kullanılmadığı için çözüm yerine API ve testler derlenir
+      - name: Build
+        run: |
+          dotnet build API/API.csproj -c Release
+          dotnet build Tests/Tests.csproj -c Release
+
+      - name: Unit tests
+        run: dotnet test Tests/Tests.csproj -c Release --no-build
+
+      - name: Migration modelle uyumlu mu?
+        run: |
+          dotnet tool restore
+          dotnet ef migrations has-pending-model-changes --project DataAccess --startup-project DataAccess

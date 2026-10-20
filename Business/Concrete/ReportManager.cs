@@ -20,6 +20,10 @@ namespace Business.Concrete
         private readonly ISinavDetayDal _sinavDetayDal;
         private readonly IDerslikDal _derslikDal;
 
+        /// <summary>duzce.edu.tr laciverti (frontend teması ile aynı)</summary>
+        private const string BrandColor = "#003366";
+        private static readonly System.Globalization.CultureInfo Tr = new("tr-TR");
+
         public ReportManager(ISinavDetayDal sinavDetayDal, IDerslikDal derslikDal)
         {
             _sinavDetayDal = sinavDetayDal;
@@ -78,7 +82,7 @@ namespace Business.Concrete
                         page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
 
                         // Header
-                        page.Header().Element(ComposeHeader);
+                        page.Header().Element(c => ComposeHeader(c, "SINAV TAKVİMİ"));
 
                         // Content
                         page.Content().Element(c => ComposeContent(c, sinavlar, startDate, endDate));
@@ -92,28 +96,28 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<byte[]>($"Rapor oluşturulurken hata: {ex.Message}");
+                return new ErrorDataResult<byte[]>(ExceptionLogger.Log(ex, "Rapor oluşturulurken hata."));
             }
         }
 
         /// <summary>
         /// PDF header bileşeni
         /// </summary>
-        private void ComposeHeader(IContainer container)
+        private static void ComposeHeader(IContainer container, string title)
         {
             container.Column(column =>
             {
                 column.Item().AlignCenter().Text("DÜZCE ÜNİVERSİTESİ")
                     .FontSize(18)
                     .Bold()
-                    .FontColor("#5B21B6");
+                    .FontColor(BrandColor);
 
-                column.Item().PaddingTop(5).AlignCenter().Text("SINAV TAKVİMİ")
+                column.Item().PaddingTop(5).AlignCenter().Text(title)
                     .FontSize(14)
                     .SemiBold()
-                    .FontColor("#5B21B6");
+                    .FontColor(BrandColor);
 
-                column.Item().PaddingTop(10).LineHorizontal(2).LineColor("#5B21B6");
+                column.Item().PaddingTop(10).LineHorizontal(2).LineColor(BrandColor);
             });
         }
 
@@ -149,14 +153,14 @@ namespace Business.Concrete
                     // Header
                     table.Header(header =>
                     {
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Bölüm Adı").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Ders Adı").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Öğretim Görevlisi").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Sınav Tarihi").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Sınav Günü").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Başlangıç").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Bitiş").FontColor(Colors.White).Bold();
-                        header.Cell().Element(CellStyle).Background("#5B21B6").Text("Derslikler").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background(BrandColor).Text("Bölüm Adı").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background(BrandColor).Text("Ders Adı").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background(BrandColor).Text("Öğretim Görevlisi").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background(BrandColor).Text("Sınav Tarihi").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background(BrandColor).Text("Sınav Günü").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background(BrandColor).Text("Başlangıç").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background(BrandColor).Text("Bitiş").FontColor(Colors.White).Bold();
+                        header.Cell().Element(CellStyle).Background(BrandColor).Text("Derslikler").FontColor(Colors.White).Bold();
 
                         static IContainer CellStyle(IContainer container)
                         {
@@ -203,7 +207,7 @@ namespace Business.Concrete
                     .Text($"Toplam Sınav Sayısı: {sinavlar.Count}")
                     .FontSize(11)
                     .Bold()
-                    .FontColor("#5B21B6");
+                    .FontColor(BrandColor);
 
                 // İmza alanı
                 column.Item().PaddingTop(40).AlignRight().Column(signatureColumn =>
@@ -219,7 +223,7 @@ namespace Business.Concrete
         /// <summary>
         /// PDF footer bileşeni
         /// </summary>
-        private void ComposeFooter(IContainer container)
+        private static void ComposeFooter(IContainer container)
         {
             container.AlignCenter().Text(x =>
             {
@@ -231,87 +235,172 @@ namespace Business.Concrete
         }
 
         /// <summary>
-        /// Gözetmen atama raporu
-        /// TODO: RDLC şablonu ile PDF oluşturulacak
+        /// Gözetmen görevlendirme raporu: her gözetmenin görevleri tarih sırasıyla (gözetmene göre gruplu).
         /// </summary>
         public IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate)
         {
             try
             {
                 var sinavlar = _sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate);
+                var derslikAdlari = _derslikDal.GetAll().ToDictionary(d => d.Id, d => d.Ad);
 
-                // Gözetmen ataması olan sınavları filtrele
-                var gozetmenAtamalari = sinavlar
-                    .SelectMany(s => s.Gozetmenler.Select(g => new
+                var gorevler = sinavlar
+                    .SelectMany(s => (s.Derslikler ?? new List<DerslikGozetmenDTO>())
+                        .Where(d => d.GozetmenId.HasValue)
+                        .Select(d => new
+                        {
+                            Sinav = s,
+                            Gozetmen = s.Gozetmenler?.FirstOrDefault(g => g.Id == d.GozetmenId),
+                            Derslik = derslikAdlari.GetValueOrDefault(d.DerslikId, "-")
+                        }))
+                    .Where(x => x.Gozetmen != null)
+                    .OrderBy(x => x.Gozetmen!.Ad, StringComparer.Create(Tr, false))
+                    .ThenBy(x => x.Sinav.SinavTarihi)
+                    .ThenBy(x => x.Sinav.SinavBaslangicSaati)
+                    .Select(x => new[]
                     {
-                        SinavTarihi = s.SinavTarihi,
-                        SinavBaslangic = s.SinavBaslangicSaati,
-                        SinavBitis = s.SinavBitisSaati,
-                        DersAd = s.DersAd,
-                        BolumAd = s.BolumAd,
-                        GozetmenAd = g.Ad,
-                        GozetmenUnvan = g.Unvan
-                    }))
-                    .OrderBy(x => x.SinavTarihi)
-                    .ThenBy(x => x.SinavBaslangic)
+                        $"{x.Gozetmen!.Unvan} {x.Gozetmen.Ad}",
+                        x.Sinav.SinavTarihi.ToString("dd.MM.yyyy"),
+                        x.Sinav.SinavTarihi.ToString("dddd", Tr),
+                        $"{x.Sinav.SinavBaslangicSaati:HH\\:mm} - {x.Sinav.SinavBitisSaati:HH\\:mm}",
+                        x.Sinav.DersAd,
+                        x.Sinav.BolumAd,
+                        x.Derslik
+                    })
                     .ToList();
 
-                if (gozetmenAtamalari.Count == 0)
-                {
-                    return new ErrorDataResult<byte[]>("Gözetmen ataması bulunamadı.");
-                }
+                if (gorevler.Count == 0)
+                    return new ErrorDataResult<byte[]>("Belirtilen tarih aralığında gözetmen ataması bulunamadı.");
 
-                // TODO: RDLC rapor oluşturma kodu buraya gelecek
-                return new ErrorDataResult<byte[]>("RDLC rapor sistemi henüz implement edilmedi.");
+                var gozetmenSayisi = gorevler.Select(r => r[0]).Distinct().Count();
+                var pdf = TableReport("GÖZETMEN GÖREVLENDİRME LİSTESİ", startDate, endDate,
+                    new[] { "Gözetmen", "Tarih", "Gün", "Saat", "Ders", "Bölüm", "Derslik" },
+                    new[] { 3f, 1.6f, 1.6f, 1.8f, 3.5f, 3f, 1.8f },
+                    gorevler,
+                    $"Toplam {gorevler.Count} görev, {gozetmenSayisi} gözetmen");
+                return new SuccessDataResult<byte[]>(pdf, "Rapor başarıyla oluşturuldu.");
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<byte[]>($"Rapor oluşturulurken hata: {ex.Message}");
+                return new ErrorDataResult<byte[]>(ExceptionLogger.Log(ex, "Rapor oluşturulurken hata."));
             }
         }
 
         /// <summary>
-        /// Derslik kullanım raporu
-        /// TODO: RDLC şablonu ile PDF oluşturulacak
+        /// Derslik kullanım raporu: her derslikte yapılan sınavlar (dersliğe göre gruplu) ve toplam kullanım süresi.
         /// </summary>
         public IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate)
         {
             try
             {
                 var sinavlar = _sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate);
+                var derslikler = _derslikDal.GetAll().ToDictionary(d => d.Id);
 
-                // Derslik kullanım istatistikleri
-                var derslikKullanimi = sinavlar
-                    .SelectMany(s => s.Derslikler.Select(d => new
-                    {
-                        DerslikId = d.DerslikId,
-                        SinavTarihi = s.SinavTarihi,
-                        SinavSaati = $"{s.SinavBaslangicSaati} - {s.SinavBitisSaati}",
-                        DersAd = s.DersAd,
-                        BolumAd = s.BolumAd
-                    }))
+                var kullanimlar = sinavlar
+                    .SelectMany(s => (s.Derslikler ?? new List<DerslikGozetmenDTO>()).Select(d => new { Sinav = s, d.DerslikId }))
+                    .Where(x => derslikler.ContainsKey(x.DerslikId))
                     .GroupBy(x => x.DerslikId)
-                    .Select(g => new
-                    {
-                        DerslikId = g.Key,
-                        KullanimSayisi = g.Count(),
-                        SinavDetaylari = g.ToList()
-                    })
-                    .OrderByDescending(x => x.KullanimSayisi)
+                    .OrderBy(g => derslikler[g.Key].Ad, StringComparer.Create(Tr, false))
                     .ToList();
 
-                if (derslikKullanimi.Count == 0)
+                if (kullanimlar.Count == 0)
+                    return new ErrorDataResult<byte[]>("Belirtilen tarih aralığında derslik kullanımı bulunamadı.");
+
+                var satirlar = new List<string[]>();
+                foreach (var grup in kullanimlar)
                 {
-                    return new ErrorDataResult<byte[]>("Derslik kullanım verisi bulunamadı.");
+                    var derslik = derslikler[grup.Key];
+                    var toplamDakika = grup.Sum(x => (x.Sinav.SinavBitisSaati - x.Sinav.SinavBaslangicSaati).TotalMinutes);
+                    var ozet = $"{derslik.Ad} ({derslik.Kapasite} kişilik) · {grup.Count()} sınav, {toplamDakika / 60:0.#} saat";
+                    foreach (var x in grup.OrderBy(x => x.Sinav.SinavTarihi).ThenBy(x => x.Sinav.SinavBaslangicSaati))
+                    {
+                        satirlar.Add(new[]
+                        {
+                            ozet,
+                            x.Sinav.SinavTarihi.ToString("dd.MM.yyyy"),
+                            x.Sinav.SinavTarihi.ToString("dddd", Tr),
+                            $"{x.Sinav.SinavBaslangicSaati:HH\\:mm} - {x.Sinav.SinavBitisSaati:HH\\:mm}",
+                            x.Sinav.DersAd,
+                            x.Sinav.BolumAd
+                        });
+                    }
                 }
 
-                // TODO: RDLC rapor oluşturma kodu buraya gelecek
-                return new ErrorDataResult<byte[]>("RDLC rapor sistemi henüz implement edilmedi.");
+                var pdf = TableReport("DERSLİK KULLANIM RAPORU", startDate, endDate,
+                    new[] { "Derslik", "Tarih", "Gün", "Saat", "Ders", "Bölüm" },
+                    new[] { 4f, 1.6f, 1.6f, 1.8f, 3.5f, 3f },
+                    satirlar,
+                    $"{kullanimlar.Count} derslik, {satirlar.Count} kullanım");
+                return new SuccessDataResult<byte[]>(pdf, "Rapor başarıyla oluşturuldu.");
             }
             catch (Exception ex)
             {
-                return new ErrorDataResult<byte[]>($"Rapor oluşturulurken hata: {ex.Message}");
+                return new ErrorDataResult<byte[]>(ExceptionLogger.Log(ex, "Rapor oluşturulurken hata."));
             }
+        }
+
+        /// <summary>
+        /// Yatay A4 tablo raporu. İlk sütun gruplama sütunudur: aynı değer art arda geldiğinde sadece ilk satırda yazılır.
+        /// </summary>
+        private static byte[] TableReport(string title, DateTime startDate, DateTime endDate,
+            string[] headers, float[] widths, List<string[]> rows, string summary)
+        {
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4.Landscape());
+                    page.Margin(1.5f, Unit.Centimetre);
+                    page.PageColor(Colors.White);
+                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+                    page.Header().Element(c => ComposeHeader(c, title));
+                    page.Content().Column(column =>
+                    {
+                        column.Item().PaddingVertical(10).AlignCenter()
+                            .Text($"Tarih Aralığı: {startDate:dd.MM.yyyy} - {endDate:dd.MM.yyyy}")
+                            .FontSize(11).FontColor(Colors.Grey.Darken2);
+
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                foreach (var w in widths)
+                                    columns.RelativeColumn(w);
+                            });
+
+                            table.Header(header =>
+                            {
+                                foreach (var h in headers)
+                                    header.Cell().Background(BrandColor).PaddingVertical(5).PaddingHorizontal(3)
+                                        .Text(h).FontColor(Colors.White).Bold();
+                            });
+
+                            string? oncekiGrup = null;
+                            var grupIndex = -1;
+                            foreach (var row in rows)
+                            {
+                                var yeniGrup = row[0] != oncekiGrup;
+                                if (yeniGrup) grupIndex++;
+                                oncekiGrup = row[0];
+                                var bg = grupIndex % 2 == 0 ? Colors.White : Colors.Grey.Lighten4;
+
+                                for (var i = 0; i < row.Length; i++)
+                                {
+                                    var text = i == 0 && !yeniGrup ? "" : row[i];
+                                    var cell = table.Cell().Border(1).BorderColor(Colors.Grey.Lighten2).Background(bg)
+                                        .PaddingVertical(4).PaddingHorizontal(3).Text(text);
+                                    if (i == 0) cell.SemiBold();
+                                }
+                            }
+                        });
+
+                        column.Item().PaddingTop(15).AlignRight().Text(summary).FontSize(11).Bold().FontColor(BrandColor);
+                    });
+                    page.Footer().Element(ComposeFooter);
+                });
+            }).GeneratePdf();
         }
     }
 }

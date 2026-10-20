@@ -1,5 +1,9 @@
 # 📁 Database Scripts
 
+> **Yeni kurulumda bu betikleri kullanmayın.** Veritabanı şeması artık EF Core migration'ları ile yönetilir;
+> boş bir veritabanında `db/schema.sql` betiğini çalıştırın (bkz. `docs/KURULUM.md`). Bu klasör, eski
+> veritabanlarının geçmişi için saklanmaktadır.
+
 Bu klasör veritabanı migration scriptlerini içerir.
 
 ## 📄 Dosyalar

@@ -1,6 +1,7 @@
-﻿using Core.Entities.Concrete;
+using Core.Entities.Concrete;
 using Core.Utilities.Results;
 using Core.Utilites.Results.Pagination;
+using Entity.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace Business.Abstract
         IDataResult<List<OperationClaim>> GetClaims(User user);
         IDataResult<List<int>> GetBolumIds(int userId);
         IDataResult<List<User>> GetAll();
+        IDataResult<List<UserWithRolesDto>> GetAllWithRoles();
         IDataResult<PagedResult<User>> GetPagedList(PaginationParams paginationParams);
     }
 }
