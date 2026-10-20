@@ -49,6 +49,8 @@ namespace DataAccess.Concrete.EntityFramework
             {
                 user.FirstName = ogrenci.Ad;
                 user.LastName = ogrenci.Soyad;
+                // Pasif öğrenci giriş yapamaz
+                user.Status = ogrenci.Status;
                 user.UpdatedDate = DateTime.Now;
             }
 
