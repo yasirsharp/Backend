@@ -67,6 +67,7 @@ yorum satırlarını da doldurabilirsiniz. Bu durumda dosyanın okuma iznini kı
 | `Auth__AllowPublicRegistration` | Hayır | Varsayılan `false`. Hesapları yönetici açar. |
 | `Database__MigrateOnStartup` | Hayır | `true` ise açılışta şemayı kendisi günceller. Varsayılan `false`: şema `schema.sql` ile kurulur. Açmak için uygulama kullanıcısının `db_owner` olması gerekir. |
 | `Serilog__FilePath` | Hayır | Log dosyası yolu. Varsayılan `logs\api-.log` (günlük döner, 14 gün saklanır). |
+| `RateLimiting__AuthPermitPerMinute` | Hayır | Giriş uçlarına IP başına dakikada izin verilen istek (varsayılan 100). Kampüs NAT/proxy arkasındaki kullanıcılar aynı IP'yi paylaştığı için düşük tutmayın; hesap başına kaba kuvvet koruması ayrıca vardır (15 dakikada 5 hatalı deneme → 15 dakika kilit). |
 
 Rastgele anahtar üretmek için (PowerShell):
 
@@ -116,6 +117,9 @@ Yedekleri başka bir diske kopyalayın. Uygulama klasöründe kalıcı veri yokt
 | Sayfa yenileyince 404 | Site kökü `publish` klasörü olmalı. `wwwroot\index.html` mevcut mu? |
 
 ## Bilinen kısıtlar
+
+- Hesap kilidi ve hız sınırı sayaçları bellekte tutulur (tek sunucu için tasarlandı); uygulama havuzu yeniden
+  başlayınca sıfırlanır.
 
 - Oturum belirteci (JWT) 4 saat geçerlidir. Pasifleştirilen kullanıcının veya parolası sıfırlanan hesabın
   açık oturumu bu süre dolana kadar çalışmaya devam eder.

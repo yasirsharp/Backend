@@ -159,6 +159,11 @@ namespace Business.Concrete
                 return new ErrorDataResult<User>(Messages.InvalidCredentials);
             }
 
+            var identifier = !string.IsNullOrWhiteSpace(userForLoginDto.Email) ? userForLoginDto.Email : userForLoginDto.UserName;
+            if (LoginThrottle.IsLocked(identifier))
+                return new ErrorDataResult<User>(
+                    $"Bu hesap için çok fazla hatalı deneme yapıldı. {LoginThrottle.Window.TotalMinutes:0} dakika sonra tekrar deneyin.");
+
             var userToCheck = !string.IsNullOrWhiteSpace(userForLoginDto.Email)
                 ? _userService.GetByMail(userForLoginDto.Email)
                 : _userService.GetByUserName(userForLoginDto.UserName);
@@ -173,8 +178,10 @@ namespace Business.Concrete
 
             if (user == null || !passwordValid)
             {
+                LoginThrottle.RegisterFailure(identifier);
                 return new ErrorDataResult<User>(Messages.InvalidCredentials);
             }
+            LoginThrottle.Reset(identifier);
 
             if (!user.Status)
             {

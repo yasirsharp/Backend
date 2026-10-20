@@ -15,7 +15,7 @@ namespace API.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = Roles.Yonetici)]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -29,6 +29,7 @@ namespace API.Controllers
 
         /// <summary>Kullanıcı yönetimi ekranı: tüm kullanıcılar rol adlarıyla.</summary>
         [HttpGet("with-roles")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetAllWithRoles()
         {
             var result = _userService.GetAllWithRoles();
@@ -41,6 +42,7 @@ namespace API.Controllers
         /// Geçici parola üretir (yanıtta bir kez gösterilir); kullanıcı ilk girişte yeni parola belirler.
         /// </summary>
         [HttpPost("{id}/reset-password")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult ResetPassword(int id)
         {
             if (User.GetUserId() == id)
@@ -62,6 +64,7 @@ namespace API.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetAll()
         {
             var result = _userService.GetAll();
@@ -71,6 +74,7 @@ namespace API.Controllers
         }
 
         [HttpGet("paged")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetPaged(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
@@ -109,7 +113,6 @@ namespace API.Controllers
         /// Giriş yapmış kullanıcının kendi bilgileri (tüm roller).
         /// </summary>
         [HttpGet("me")]
-        [Authorize]
         public IActionResult GetMe()
         {
             var userId = User.GetUserId();
@@ -123,6 +126,7 @@ namespace API.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetById(int id)
         {
             var result = _userService.GetById(id);
@@ -132,6 +136,7 @@ namespace API.Controllers
         }
 
         [HttpGet("email")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetByEmail(string email)
         {
             var result = _userService.GetByMail(email);
@@ -141,6 +146,7 @@ namespace API.Controllers
         }
 
         [HttpGet("username")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetByUserName(string userName)
         {
             var result = _userService.GetByUserName(userName);
@@ -150,6 +156,7 @@ namespace API.Controllers
         }
 
         [HttpGet("claims/{id}")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetClaims(int id)
         {
             var userResult = _userService.GetById(id);
@@ -163,6 +170,7 @@ namespace API.Controllers
         }
 
         [HttpGet("bolumids/{userId}")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetBolumIds(int userId)
         {
             var result = _userService.GetBolumIds(userId);
@@ -172,6 +180,7 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Delete(int id)
         {
             if (User.GetUserId() == id)
@@ -194,6 +203,7 @@ namespace API.Controllers
         /// PasswordHash/PasswordSalt dahil her alan istemciden değiştirilebiliyordu.
         /// </summary>
         [HttpPut]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Update(UserUpdateDto userUpdateDto)
         {
             var existing = _userService.GetById(userUpdateDto.Id);

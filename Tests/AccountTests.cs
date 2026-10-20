@@ -124,3 +124,33 @@ namespace Tests
         }
     }
 }
+
+namespace Tests
+{
+    public class LoginThrottleTests
+    {
+        [Fact]
+        public void Locks_account_after_five_failures_and_unlocks_after_window()
+        {
+            var id = $"deneme-{Guid.NewGuid()}@duzce.edu.tr";
+            var t0 = DateTime.UtcNow;
+            for (var i = 0; i < Business.Helpers.LoginThrottle.MaxFailures; i++)
+            {
+                Assert.False(Business.Helpers.LoginThrottle.IsLocked(id, t0));
+                Business.Helpers.LoginThrottle.RegisterFailure(id, t0);
+            }
+            Assert.True(Business.Helpers.LoginThrottle.IsLocked(id.ToUpperInvariant(), t0.AddMinutes(1)));
+            Assert.False(Business.Helpers.LoginThrottle.IsLocked(id, t0.AddMinutes(16)));
+        }
+
+        [Fact]
+        public void Successful_login_resets_counter()
+        {
+            var id = $"deneme-{Guid.NewGuid()}";
+            for (var i = 0; i < 4; i++) Business.Helpers.LoginThrottle.RegisterFailure(id);
+            Business.Helpers.LoginThrottle.Reset(id);
+            Business.Helpers.LoginThrottle.RegisterFailure(id);
+            Assert.False(Business.Helpers.LoginThrottle.IsLocked(id));
+        }
+    }
+}

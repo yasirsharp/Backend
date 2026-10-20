@@ -116,7 +116,10 @@ builder.Services.AddAuthorization(options =>
         .Build();
 });
 
-// Login/register uç noktaları için kaba kuvvet koruması (IP başına dakikada 10 istek)
+// Giriş uçları için IP başına hız sınırı (varsayılan dakikada 100). Kampüste çok sayıda kullanıcı aynı NAT/proxy
+// IP'sinden gelebildiği için düşük tutulmaz; tek hesaba yönelik parola denemelerini LoginThrottle (hesap başına
+// 15 dakikada 5 hatalı deneme) durdurur.
+var authPermitPerMinute = builder.Configuration.GetValue("RateLimiting:AuthPermitPerMinute", 100);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -125,7 +128,7 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = authPermitPerMinute,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
