@@ -1,4 +1,6 @@
 using Business.Abstract;
+using Business.Constants;
+using Core.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -27,7 +29,6 @@ namespace API.Controllers
         /// <param name="bolumIds">Bölüm ID'leri (opsiyonel, virgülle ayrılmış)</param>
         /// <returns>PDF dosyası</returns>
         [HttpGet("official-sinav-report")]
-        [Authorize]
         public IActionResult GetOfficialSinavReport(
             [FromQuery] DateTime startDate,
             [FromQuery] DateTime endDate,
@@ -41,6 +42,14 @@ namespace API.Controllers
                     .Select(id => int.TryParse(id.Trim(), out int result) ? result : 0)
                     .Where(id => id > 0)
                     .ToArray();
+            }
+
+            // Öğrenci sadece kendi bölümünün takvimini alabilir (istediği bölümden bağımsız)
+            if (!User.IsInAnyRole(Roles.Personel))
+            {
+                if (!int.TryParse(User.FindFirst("BolumId")?.Value, out var ogrenciBolumId))
+                    return Forbid();
+                bolumIdArray = new[] { ogrenciBolumId };
             }
 
             var result = _reportService.GenerateOfficialSinavReport(startDate, endDate, bolumIdArray);
@@ -61,7 +70,7 @@ namespace API.Controllers
         /// <param name="endDate">Bitiş tarihi (yyyy-MM-dd)</param>
         /// <returns>PDF dosyası</returns>
         [HttpGet("gozetmen-assignment-report")]
-        [Authorize]
+        [Authorize(Roles = Roles.Personel)]
         public IActionResult GetGozetmenAssignmentReport(
             [FromQuery] DateTime startDate,
             [FromQuery] DateTime endDate)
@@ -83,7 +92,7 @@ namespace API.Controllers
         /// <param name="endDate">Bitiş tarihi (yyyy-MM-dd)</param>
         /// <returns>PDF dosyası</returns>
         [HttpGet("derslik-usage-report")]
-        [Authorize]
+        [Authorize(Roles = Roles.Personel)]
         public IActionResult GetDerslikUsageReport(
             [FromQuery] DateTime startDate,
             [FromQuery] DateTime endDate)
@@ -102,7 +111,6 @@ namespace API.Controllers
         /// Rapor sistemi durumunu kontrol et
         /// </summary>
         [HttpGet("status")]
-        [Authorize]
         public IActionResult GetReportStatus()
         {
             return Ok(new
