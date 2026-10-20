@@ -1,6 +1,7 @@
-﻿using Business.Abstract;
+using Business.Abstract;
 using Business.Constants;
 using Core.Entities.Concrete;
+using Entity.DTOs;
 using Core.Utilities.Results;
 using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
@@ -137,6 +138,11 @@ namespace Business.Concrete
             {
                 return new ErrorDataResult<List<OperationClaim>>(Messages.SomethingWrong);
             }
+        }
+
+        public IDataResult<List<UserWithRolesDto>> GetAllWithRoles()
+        {
+            return new SuccessDataResult<List<UserWithRolesDto>>(_userDal.GetAllWithRoles());
         }
 
         public IResult Update(User user)

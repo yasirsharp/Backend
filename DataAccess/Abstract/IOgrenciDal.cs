@@ -1,4 +1,5 @@
 using Core.DataAccess;
+using Core.Entities.Concrete;
 using Entity.Concrete;
 
 namespace DataAccess.Abstract
@@ -9,7 +10,13 @@ namespace DataAccess.Abstract
     /// </summary>
     public interface IOgrenciDal : IEntityRepository<Ogrenci>
     {
-        // Standart CRUD işlemleri IEntityRepository'den geliyor
-        // Gerekirse özel metodlar buraya eklenebilir (örn: GetByOgrenciNo)
+        /// <summary>Kullanıcı, öğrenci kaydı ve rolü tek transaction içinde ekler.</summary>
+        Task AddWithUserAsync(User user, Ogrenci ogrenci, string roleName);
+
+        /// <summary>Öğrenci ve kullanıcısının ad/soyad bilgilerini birlikte günceller.</summary>
+        Task UpdateWithUserAsync(Ogrenci ogrenci);
+
+        /// <summary>Öğrenci kaydını siler; kullanıcı pasifleştirilir ve rolleri kaldırılır.</summary>
+        Task DeleteWithUserAsync(Ogrenci ogrenci);
     }
 }

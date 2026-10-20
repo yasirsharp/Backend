@@ -19,8 +19,9 @@ namespace DataAccess.Concrete.EntityFramework
         /// Çakışma kontrolü ve kayıt aynı transaction ve aynı uygulama kilidi altında yapılır.
         /// Çakışma varsa kayıt eklenmez ve çakışan sınav döner; yoksa sınav eklenir ve null döner.
         /// </summary>
-        public SinavDetay? AddIfNoConflict(SinavKayitDTO sinavKayitDTO)
+        public SinavDetay? AddIfNoConflict(SinavKayitDTO sinavKayitDTO, out int createdId)
         {
+            createdId = 0;
             using DuzceUniversiteContext context = new DuzceUniversiteContext();
             using var transaction = context.Database.BeginTransaction();
 
@@ -53,7 +54,7 @@ namespace DataAccess.Concrete.EntityFramework
                 {
                     SinavDetayId = sinavDetay.Id,
                     DerslikId = derslik.DerslikId,
-                    GozetmenId = derslik.GozetmenId ?? 0,
+                    GozetmenId = derslik.GozetmenId,
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now,
                     Status = true
@@ -63,7 +64,46 @@ namespace DataAccess.Concrete.EntityFramework
 
             context.SaveChanges();
             transaction.Commit();
+            createdId = sinavDetay.Id;
             return null;
+        }
+
+        public SinavBildirimBilgisiDTO? GetBildirimBilgisi(int sinavDetayId)
+        {
+            using var context = new DuzceUniversiteContext();
+            var sinav = (from s in context.SinavDetay
+                         join dba in context.DersBolumAkademikPersonel on s.DersBolumAkademikPersonelId equals dba.Id
+                         join d in context.Ders on dba.DersId equals d.Id
+                         join ap in context.AkademikPersonel on dba.AkademikPersonelId equals ap.Id
+                         where s.Id == sinavDetayId
+                         select new { s.Id, d.Kod, d.Ad, s.SinavTarihi, s.SinavBaslangicSaati, s.SinavBitisSaati, ap.UserId })
+                        .FirstOrDefault();
+            if (sinav == null)
+                return null;
+
+            var derslikler = (from sd in context.SinavDerslik
+                              join dl in context.Derslik on sd.DerslikId equals dl.Id
+                              join ap in context.AkademikPersonel on sd.GozetmenId equals (int?)ap.Id into gozetmen
+                              from g in gozetmen.DefaultIfEmpty()
+                              where sd.SinavDetayId == sinavDetayId
+                              select new { dl.Ad, GozetmenUserId = g == null ? (int?)null : g.UserId })
+                             .ToList();
+
+            var info = new SinavBildirimBilgisiDTO
+            {
+                SinavId = sinav.Id,
+                DersKod = sinav.Kod,
+                DersAd = sinav.Ad,
+                SinavTarihi = sinav.SinavTarihi,
+                BaslangicSaati = sinav.SinavBaslangicSaati,
+                BitisSaati = sinav.SinavBitisSaati,
+                Derslikler = derslikler.Select(x => x.Ad).ToList()
+            };
+            info.Gorevliler.Add(new SinavGorevliDTO { UserId = sinav.UserId, Gorev = "ogretim" });
+            info.Gorevliler.AddRange(derslikler
+                .Where(x => x.GozetmenUserId.HasValue)
+                .Select(x => new SinavGorevliDTO { UserId = x.GozetmenUserId!.Value, Gorev = "gozetmen", Derslik = x.Ad }));
+            return info;
         }
 
         public void DeleteWithTransaction(SinavDetay sinavDetay)
@@ -145,9 +185,13 @@ namespace DataAccess.Concrete.EntityFramework
                                    // Derslik çakışma kontrolü
                                    derslikIdleri.Contains(sd.DerslikId) ||
                                    // Gözetmen çakışma kontrolü
-                                   gozetmenIdleri.Contains(sd.GozetmenId) ||
+                                   (sd.GozetmenId != null && gozetmenIdleri.Contains(sd.GozetmenId.Value)) ||
                                    // Akademik personel çakışma kontrolü
-                                   (akademikPersonelId != null && dba.AkademikPersonelId == akademikPersonelId)
+                                   (akademikPersonelId != null && dba.AkademikPersonelId == akademikPersonelId) ||
+                                   // Gözetmen o saatte başka bir sınavın dersini veriyor
+                                   gozetmenIdleri.Contains(dba.AkademikPersonelId) ||
+                                   // Dersin öğretim elemanı o saatte başka bir sınavda gözetmen
+                                   (akademikPersonelId != null && sd.GozetmenId == akademikPersonelId)
                                ) &&
                                // Saat aralıkları kesişiyor mu?
                                s.SinavBaslangicSaati < sinavBitisSaati &&
@@ -182,7 +226,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  Derslikler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
@@ -194,7 +238,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -229,7 +273,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  Derslikler = context.SinavDerslik
                              .Where(x => x.SinavDetayId == s.Id)
@@ -241,7 +285,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                              .Where(x => x.SinavDetayId == s.Id)
                              .Join(context.AkademikPersonel,
-                                 sd => sd.GozetmenId,
+                                 sd => sd.GozetmenId ?? 0,
                                  ap => ap.Id,
                                  (sd, ap) => ap)
                              .ToList()
@@ -277,7 +321,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  Derslikler = context.SinavDerslik
                              .Where(x => x.SinavDetayId == s.Id)
@@ -289,7 +333,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                              .Where(x => x.SinavDetayId == s.Id)
                              .Join(context.AkademikPersonel,
-                                 sd => sd.GozetmenId,
+                                 sd => sd.GozetmenId ?? 0,
                                  ap => ap.Id,
                                  (sd, ap) => ap)
                              .ToList()
@@ -323,7 +367,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBaslangicSaati = s.SinavBaslangicSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  Derslikler = context.SinavDerslik
@@ -336,7 +380,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -364,7 +408,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  DerslikId = sd.DerslikId,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
                                  SinavTarihi = s.SinavTarihi,
@@ -381,7 +425,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -415,7 +459,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  Derslikler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
@@ -427,7 +471,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -474,7 +518,7 @@ namespace DataAccess.Concrete.EntityFramework
                 {
                     SinavDetayId = sinavDetay.Id,
                     DerslikId = derslik.DerslikId,
-                    GozetmenId = derslik.GozetmenId ?? 0,
+                    GozetmenId = derslik.GozetmenId,
                     CreatedDate = DateTime.Now,
                     UpdatedDate = DateTime.Now,
                     Status = true
@@ -511,7 +555,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBaslangicSaati = s.SinavBaslangicSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  Derslikler = context.SinavDerslik
@@ -524,7 +568,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -558,7 +602,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBaslangicSaati = s.SinavBaslangicSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  Derslikler = context.SinavDerslik
@@ -571,7 +615,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -605,7 +649,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBaslangicSaati = s.SinavBaslangicSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  Derslikler = context.SinavDerslik
@@ -618,7 +662,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -660,7 +704,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                     .Where(x => x.SinavDetayId == s.Id)
                                     .Join(context.AkademikPersonel,
-                                        sd => sd.GozetmenId,
+                                        sd => sd.GozetmenId ?? 0,
                                         ap => ap.Id,
                                         (sd, ap) => ap)
                                     .ToList()
@@ -703,7 +747,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                     .Where(x => x.SinavDetayId == s.Id)
                                     .Join(context.AkademikPersonel,
-                                        sd => sd.GozetmenId,
+                                        sd => sd.GozetmenId ?? 0,
                                         ap => ap.Id,
                                         (sd, ap) => ap)
                                     .ToList()
@@ -747,7 +791,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                     .Where(x => x.SinavDetayId == s.Id)
                                     .Join(context.AkademikPersonel,
-                                        sd => sd.GozetmenId,
+                                        sd => sd.GozetmenId ?? 0,
                                         ap => ap.Id,
                                         (sd, ap) => ap)
                                     .ToList()
@@ -791,7 +835,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                     .Where(x => x.SinavDetayId == s.Id)
                                     .Join(context.AkademikPersonel,
-                                        sd => sd.GozetmenId,
+                                        sd => sd.GozetmenId ?? 0,
                                         ap => ap.Id,
                                         (sd, ap) => ap)
                                     .ToList()

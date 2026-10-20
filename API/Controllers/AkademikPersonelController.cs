@@ -4,13 +4,14 @@ using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
+using Entity.DTOs;
 using System.Linq.Expressions;
 
 namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = Roles.Personel)] // Öğrenciler personel listesine erişemez
     public class AkademikPersonelController : ControllerBase
     {
         private readonly IAkademikPersonelService _akademikPersonelService;
@@ -71,36 +72,44 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Belirli bir bölüme ait akademik personelleri getirir (GorevliLayout için)
-        /// BolumAkademikPersoneller tablosu üzerinden çalışır
+        /// Bölümde ders veren (ders atamaları) veya bölüm görevlisi olan akademik personel.
         /// </summary>
         [HttpGet("bolum/{bolumId}")]
         public IActionResult GetByBolumId(int bolumId)
         {
-            // Tüm akademik personelleri al
-            var allPersonel = _akademikPersonelService.GetList();
-            if (!allPersonel.Success)
-                return BadRequest(allPersonel);
-
-            // TODO: Service layer'da BolumAkademikPersoneller ile join yapan metod olmalı
-            // Şimdilik basit liste dönüyoruz
-            return Ok(new Core.Utilities.Results.SuccessDataResult<List<AkademikPersonel>>(
-                allPersonel.Data,
-                $"{allPersonel.Data.Count} akademik personel bulundu. (BolumId filtresi uygulanmadı - Service layer'da implement edilmeli)"
-            ));
+            var result = _akademikPersonelService.GetByBolumId(bolumId);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
         }
 
+        /// <summary>
+        /// Personel ve kullanıcı hesabı açar. Gövde: { ad, unvan, email? }. Geçici parola yanıtta bir kez döner.
+        /// </summary>
         [HttpPost]
         [Authorize(Roles = Roles.Yonetici)]
-        public async Task<IActionResult> Add(AkademikPersonel akademikPersonel)
+        public async Task<IActionResult> Add(AkademikPersonelCreateDto dto)
         {
-            var result = await _akademikPersonelService.Add(akademikPersonel);
+            var result = await _akademikPersonelService.CreateAsync(dto);
 
             if (result.Success)
                 return Created("", result);
 
             return BadRequest(result);
         }
+
+        /// <summary>Toplu personel ekleme (en fazla 1000 satır), satır bazında sonuç döner.</summary>
+        [HttpPost("bulk")]
+        [Authorize(Roles = Roles.Yonetici)]
+        [RequestSizeLimit(2_000_000)]
+        public async Task<IActionResult> BulkAdd(List<AkademikPersonelCreateDto> rows)
+        {
+            var result = await _akademikPersonelService.BulkCreateAsync(rows);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
         [HttpPut]
         [Authorize(Roles = Roles.Yonetici)]
         public async Task<IActionResult> Update(AkademikPersonel akademikPersonel)

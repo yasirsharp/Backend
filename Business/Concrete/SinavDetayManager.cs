@@ -1,6 +1,7 @@
-﻿using Business.Abstract;
+using Business.Abstract;
 using Business.BusinessAspects.Autofac;
 using Business.Constants;
+using Business.Helpers;
 using Core.Utilities.Results;
 using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
@@ -20,12 +21,29 @@ namespace Business.Concrete
         ISinavDetayDal _sinavDetayDal;
         IAkademikPersonelService _akademikPersonelService;
         IAkademikPersonelMusaitlikDal _musaitlikDal;
+        SinavBildirimci _bildirimci;
 
-        public SinavDetayManager(ISinavDetayDal sinavDetayDal, IAkademikPersonelService akademikPersonelService, IAkademikPersonelMusaitlikDal musaitlikDal)
+        public SinavDetayManager(ISinavDetayDal sinavDetayDal, IAkademikPersonelService akademikPersonelService,
+            IAkademikPersonelMusaitlikDal musaitlikDal, INotificationDal notificationDal)
         {
             _sinavDetayDal = sinavDetayDal;
             _akademikPersonelService = akademikPersonelService;
             _musaitlikDal = musaitlikDal;
+            _bildirimci = new SinavBildirimci(notificationDal);
+        }
+
+        /// <summary>Bildirim bilgisi okunamazsa sınav işlemi yine de tamamlanır.</summary>
+        private SinavBildirimBilgisiDTO? BildirimBilgisi(int sinavId)
+        {
+            try
+            {
+                return _sinavDetayDal.GetBildirimBilgisi(sinavId);
+            }
+            catch (Exception ex)
+            {
+                ExceptionLogger.Log(ex, "Sınav bildirim bilgisi okunamadı.");
+                return null;
+            }
         }
         public IDataResult<List<SinavDetayDTO>> GetByDerslikler(int[] derslikIds)
         {
@@ -182,9 +200,11 @@ namespace Business.Concrete
                 }
 
                 // Çakışma kontrolü ve ekleme tek transaction içinde (eşzamanlı isteklerde çifte rezervasyonu önler)
-                var conflict = _sinavDetayDal.AddIfNoConflict(sinavKayitDTO);
+                var conflict = _sinavDetayDal.AddIfNoConflict(sinavKayitDTO, out var createdId);
                 if (conflict != null)
                     return new ErrorResult(Messages.SinavCakisma);
+
+                _bildirimci.Eklendi(BildirimBilgisi(createdId));
 
                 return new SuccessResult(Messages.SinavDetayAdded);
             }
@@ -202,11 +222,12 @@ namespace Business.Concrete
                 var existingRecord = _sinavDetayDal.Get(s => s.Id == sinavDetay.Id);
                 if (existingRecord == null)
                 {
-                    return new ErrorResult("Güncellenecek sınav kaydı bulunamadı.");
+                    return new ErrorResult("Silinecek sınav kaydı bulunamadı.");
                 }
 
-                // Güncellemeyi yap
+                var once = BildirimBilgisi(sinavDetay.Id);
                 _sinavDetayDal.DeleteWithTransaction(sinavDetay);
+                _bildirimci.Silindi(once);
 
                 return new SuccessResult(Messages.SinavDetayDeleted);
             }
@@ -301,9 +322,12 @@ namespace Business.Concrete
                 }
 
                 // Çakışma kontrolü (kendi ID'si hariç) ve güncelleme tek transaction içinde
+                var once = BildirimBilgisi(sinavGuncelleDTO.Id);
                 var conflict = _sinavDetayDal.UpdateIfNoConflict(sinavGuncelleDTO);
                 if (conflict != null)
                     return new ErrorResult(Messages.SinavCakisma);
+
+                _bildirimci.Guncellendi(once, BildirimBilgisi(sinavGuncelleDTO.Id));
 
                 return new SuccessResult(Messages.SinavDetayUpdated);
             }

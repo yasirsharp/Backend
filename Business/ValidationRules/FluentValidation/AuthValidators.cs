@@ -40,7 +40,8 @@ namespace Business.ValidationRules.FluentValidation
             RuleFor(x => x.LastName).NotEmpty().MaximumLength(100).WithMessage("Soyad boş olamaz.");
             RuleFor(x => x.OgrenciNo).NotEmpty().MaximumLength(20).WithMessage("Öğrenci numarası boş olamaz.");
             RuleFor(x => x.BolumId).GreaterThan(0).WithMessage("Geçerli bir bölüm seçiniz.");
-            RuleFor(x => x.Password).StrongPassword();
+            // Parola verilmezse geçici parola üretilir
+            RuleFor(x => x.Password!).StrongPassword().When(x => !string.IsNullOrEmpty(x.Password));
         }
     }
 

@@ -10,6 +10,7 @@ using Entity.DTOs;
 using Entity.Concrete;
 using DataAccess.Abstract;
 using System.Security.Claims;
+using Business.Helpers;
 
 namespace Business.Concrete
 {
@@ -20,139 +21,70 @@ namespace Business.Concrete
         private static readonly byte[] DummySalt = new byte[16];
         private static readonly byte[] DummyHash = new byte[64];
 
-        private IUserService _userService;
-        private ITokenHelper _tokenHelper;
-        private IOgrenciService _ogrenciService;
-        private IUserOperationClaimService _userOperationClaimService;
-        private IAkademikPersonelDal _akademikPersonelDal; // Transaction için direkt Dal kullanımı
+        private readonly IUserService _userService;
+        private readonly ITokenHelper _tokenHelper;
+        private readonly IOgrenciService _ogrenciService;
+        private readonly IAkademikPersonelDal _akademikPersonelDal; // Transaction için direkt Dal kullanımı
 
         public AuthManager(IUserService userService,
             ITokenHelper tokenHelper,
             IOgrenciService ogrenciService,
-            IUserOperationClaimService userOperationClaimService,
             IAkademikPersonelDal akademikPersonelDal)
         {
             _userService = userService;
             _tokenHelper = tokenHelper;
             _ogrenciService = ogrenciService;
-            _userOperationClaimService = userOperationClaimService;
             _akademikPersonelDal = akademikPersonelDal;
         }
 
-
-
+        /// <summary>
+        /// Genel kayıt (Auth:AllowPublicRegistration açıksa). Kullanıcı parolasını kendisi seçtiği için
+        /// parola değiştirme zorunluluğu yoktur; rol ataması yönetici tarafından yapılır.
+        /// </summary>
         [ValidationAspect(typeof(UserForRegisterDtoValidator))]
         public IDataResult<User> Register(UserForRegisterDto userForRegisterDto, string password)
         {
             if (_userService.GetByUserName(userForRegisterDto.UserName).Data != null)
                 return new ErrorDataResult<User>(Messages.UserNameAlreadyExists);
 
-            byte[] passwordHash, passwordSalt;
-            HashingHelper.CreatePasswordHash(password, out passwordHash, out passwordSalt);
-            var user = new User
-            {
-                Email = userForRegisterDto.Email,
-                UserName = userForRegisterDto.UserName,
-                FirstName = userForRegisterDto.FirstName,
-                LastName = userForRegisterDto.LastName,
-                PasswordHash = passwordHash,
-                PasswordSalt = passwordSalt,
-                Status = true
-            };
-            var result =_userService.Add(user);
-            if(!result.Success) return new ErrorDataResult<User>(result.Message);
+            var user = AccountFactory.NewUser(userForRegisterDto.FirstName, userForRegisterDto.LastName,
+                userForRegisterDto.Email, userForRegisterDto.UserName, out _, password);
+            user.MustChangePassword = false;
+
+            var result = _userService.Add(user);
+            if (!result.Success) return new ErrorDataResult<User>(result.Message);
             return new SuccessDataResult<User>(user, Messages.UserRegistered);
         }
 
+        /// <summary>
+        /// Yönetici tarafından tek öğrenci kaydı. Parola verilmezse geçici parola üretilir; her iki durumda da
+        /// öğrenci ilk girişte parolasını değiştirir. Kullanıcı adı öğrenci numarasıdır.
+        /// </summary>
         [ValidationAspect(typeof(OgrenciRegisterDtoValidator))]
-        public IDataResult<User> RegisterOgrenci(OgrenciRegisterDto ogrenciRegisterDto)
+        public Task<IDataResult<CreatedAccountDto>> RegisterOgrenciAsync(OgrenciRegisterDto dto)
         {
-            var userName = ogrenciRegisterDto.Email.Split('@')[0]; // Email'in @ öncesi
-            if (_userService.GetByUserName(userName).Data != null)
-                return new ErrorDataResult<User>(Messages.UserNameAlreadyExists);
-
-            // 1. Kullanıcı oluştur
-            byte[] passwordHash, passwordSalt;
-            HashingHelper.CreatePasswordHash(ogrenciRegisterDto.Password, out passwordHash, out passwordSalt);
-            var user = new User
+            return _ogrenciService.CreateAsync(new OgrenciCreateDto
             {
-                Email = ogrenciRegisterDto.Email,
-                UserName = userName,
-                FirstName = ogrenciRegisterDto.FirstName,
-                LastName = ogrenciRegisterDto.LastName,
-                PasswordHash = passwordHash,
-                PasswordSalt = passwordSalt,
-                Status = true
-            };
-
-            var userResult = _userService.Add(user);
-            if (!userResult.Success) return new ErrorDataResult<User>(userResult.Message);
-
-            // 2. Öğrenci kaydı oluştur
-            var ogrenci = new Ogrenci
-            {
-                UserId = user.Id,
-                OgrenciNo = ogrenciRegisterDto.OgrenciNo,
-                Ad = ogrenciRegisterDto.FirstName,
-                Soyad = ogrenciRegisterDto.LastName,
-                BolumId = ogrenciRegisterDto.BolumId,
-                Sinif = ogrenciRegisterDto.Sinif,
-                CreatedDate = DateTime.Now,
-                Status = true
-            };
-
-            var ogrenciResult = _ogrenciService.Add(ogrenci);
-            if (!ogrenciResult.Success)
-            {
-                // Rollback: User'ı sil
-                _userService.Delete(user);
-                return new ErrorDataResult<User>(ogrenciResult.Message);
-            }
-
-            // 3. Öğrenci role'ü ata
-            var userOperationClaim = new Core.Entities.Concrete.UserOperationClaim
-            {
-                UserId = user.Id,
-                OperationClaimId = 3, // "ogrenci" role'ü
-                CreatedDate = DateTime.Now,
-                Status = true
-            };
-
-            var claimResult = _userOperationClaimService.Add(userOperationClaim);
-            if (!claimResult.Success)
-            {
-                // Rollback: User ve Öğrenci'yi sil
-                _ogrenciService.Delete(ogrenci);
-                _userService.Delete(user);
-                return new ErrorDataResult<User>(claimResult.Message);
-            }
-
-            return new SuccessDataResult<User>(user, "Öğrenci kaydı başarıyla oluşturuldu");
+                OgrenciNo = dto.OgrenciNo,
+                Ad = dto.FirstName,
+                Soyad = dto.LastName,
+                Email = dto.Email,
+                BolumId = dto.BolumId,
+                Sinif = dto.Sinif
+            }, dto.Password);
         }
 
         [ValidationAspect(typeof(AkademikPersonelRegisterDtoValidator))]
         public async Task<IDataResult<User>> RegisterAkademikPersonelAsync(AkademikPersonelRegisterDto akademikPersonelRegisterDto)
         {
-            var userName = akademikPersonelRegisterDto.Email.Split('@')[0]; // Email'in @ öncesi
+            var userName = AccountFactory.ToAsciiLower(akademikPersonelRegisterDto.Email.Split('@')[0]); // Email'in @ öncesi
             if (_userService.GetByUserName(userName).Data != null)
                 return new ErrorDataResult<User>(Messages.UserNameAlreadyExists);
 
-            // 1. İŞ KURALI: Kullanıcı hazırla (password hashing - Business logic!)
-            byte[] passwordHash, passwordSalt;
-            HashingHelper.CreatePasswordHash(akademikPersonelRegisterDto.Password, out passwordHash, out passwordSalt);
-            var user = new User
-            {
-                Email = akademikPersonelRegisterDto.Email,
-                UserName = userName,
-                FirstName = akademikPersonelRegisterDto.FirstName,
-                LastName = akademikPersonelRegisterDto.LastName,
-                PasswordHash = passwordHash,
-                PasswordSalt = passwordSalt,
-                Status = true,
-                CreatedDate = DateTime.Now
-            };
+            // Yönetici parolayı belirlese de kullanıcı ilk girişte değiştirir
+            var user = AccountFactory.NewUser(akademikPersonelRegisterDto.FirstName, akademikPersonelRegisterDto.LastName,
+                akademikPersonelRegisterDto.Email, userName, out _, akademikPersonelRegisterDto.Password);
 
-            // 2. İŞ KURALI: Akademik Personel hazırla
             var akademikPersonel = new AkademikPersonel
             {
                 Ad = akademikPersonelRegisterDto.FirstName + " " + akademikPersonelRegisterDto.LastName,
@@ -162,20 +94,61 @@ namespace Business.Concrete
                 // UserId Dal tarafından atanacak
             };
 
-            // 3. İŞ KURALI: Role hazırla
-            var userOperationClaim = new Core.Entities.Concrete.UserOperationClaim
-            {
-                OperationClaimId = 2, // "akademik.personel" role'ü
-                CreatedDate = DateTime.Now,
-                Status = true
-                // UserId Dal tarafından atanacak
-            };
-
-            // 4. DAL: Transaction içinde kaydet (User → AkademikPersonel → Role)
-            // Hata olursa DAL transaction'ı geri alır ve istisna ExceptionMiddleware'de loglanır.
-            await _akademikPersonelDal.AddWithUserAsync(user, akademikPersonel, userOperationClaim);
+            // Transaction içinde kaydet (User → AkademikPersonel → Rol). Hata olursa DAL transaction'ı geri alır
+            // ve istisna ExceptionMiddleware'de loglanır.
+            await _akademikPersonelDal.AddWithUserAsync(user, akademikPersonel, Roles.AkademikPersonel);
 
             return new SuccessDataResult<User>(user, "Akademik personel kaydı başarıyla oluşturuldu");
+        }
+
+        [ValidationAspect(typeof(ChangePasswordDtoValidator))]
+        public IDataResult<User> ChangePassword(int userId, ChangePasswordDto dto)
+        {
+            var userResult = _userService.GetById(userId);
+            var user = userResult.Success ? userResult.Data : null;
+            if (user == null || !user.Status)
+                return new ErrorDataResult<User>(Messages.UserNotFound);
+
+            if (!HashingHelper.VerifyPasswordHash(dto.CurrentPassword, user.PasswordHash, user.PasswordSalt))
+                return new ErrorDataResult<User>("Mevcut parola hatalı.");
+
+            HashingHelper.CreatePasswordHash(dto.NewPassword, out var hash, out var salt);
+            user.PasswordHash = hash;
+            user.PasswordSalt = salt;
+            user.MustChangePassword = false;
+            user.UpdatedDate = DateTime.Now;
+
+            var update = _userService.Update(user);
+            if (!update.Success)
+                return new ErrorDataResult<User>(update.Message);
+
+            return new SuccessDataResult<User>(user, "Parolanız değiştirildi.");
+        }
+
+        public IDataResult<CreatedAccountDto> ResetPassword(int targetUserId, bool actorIsSuperAdmin)
+        {
+            var userResult = _userService.GetById(targetUserId);
+            var user = userResult.Success ? userResult.Data : null;
+            if (user == null)
+                return new ErrorDataResult<CreatedAccountDto>(Messages.UserNotFound);
+
+            var targetRoles = _userService.GetClaims(user).Data ?? new List<OperationClaim>();
+            if (!actorIsSuperAdmin && targetRoles.Any(r => r.Name == Roles.SuperAdmin))
+                return new ErrorDataResult<CreatedAccountDto>("super.admin hesabının parolasını yalnızca super.admin sıfırlayabilir.");
+
+            var temporaryPassword = PasswordGenerator.Generate();
+            HashingHelper.CreatePasswordHash(temporaryPassword, out var hash, out var salt);
+            user.PasswordHash = hash;
+            user.PasswordSalt = salt;
+            user.MustChangePassword = true;
+            user.UpdatedDate = DateTime.Now;
+
+            var update = _userService.Update(user);
+            if (!update.Success)
+                return new ErrorDataResult<CreatedAccountDto>(update.Message);
+
+            return new SuccessDataResult<CreatedAccountDto>(AccountFactory.ToCreatedAccount(user, temporaryPassword),
+                "Parola sıfırlandı. Kullanıcı ilk girişte yeni parola belirleyecek.");
         }
 
         public IDataResult<User> Login(UserForLoginDto userForLoginDto)

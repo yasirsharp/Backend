@@ -3,6 +3,7 @@ using Entity.Concrete;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace DataAccess.Concrete.EntityFramework
@@ -44,6 +45,125 @@ namespace DataAccess.Concrete.EntityFramework
         /// ConnectionStrings__DefaultConnection ortam değişkeni kullanılmalıdır.
         /// </summary>
         public static string? ConnectionString { get; set; }
+
+        /// <summary>
+        /// Rollerin sabit ID'leri. Tohum verisi (HasData) ile oluşturulur; kod rol adlarını kullanır.
+        /// </summary>
+        public static readonly (int Id, string Name)[] SeedRoles =
+        {
+            (1, "super.admin"),
+            (2, "akademik.personel"),
+            (3, "ogrenci"),
+            (4, "bolum.gorevlisi"),
+            (5, "gorevli.personel"),
+            (6, "Admin"),
+        };
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            // --- Kullanıcılar ve yetkiler ---
+            modelBuilder.Entity<User>(e =>
+            {
+                e.Property(x => x.FirstName).HasMaxLength(100).IsRequired();
+                e.Property(x => x.LastName).HasMaxLength(100).IsRequired();
+                e.Property(x => x.Email).HasMaxLength(256).IsRequired();
+                e.Property(x => x.UserName).HasMaxLength(100).IsRequired();
+                e.Property(x => x.PasswordHash).HasMaxLength(128).IsRequired();
+                e.Property(x => x.PasswordSalt).HasMaxLength(128).IsRequired();
+                e.HasIndex(x => x.Email).IsUnique();
+                e.HasIndex(x => x.UserName).IsUnique();
+            });
+
+            modelBuilder.Entity<OperationClaim>(e =>
+            {
+                e.Property(x => x.Name).HasMaxLength(100).IsRequired();
+                e.HasIndex(x => x.Name).IsUnique();
+                var seedDate = new DateTime(2026, 1, 1);
+                e.HasData(SeedRoles.Select(r => new OperationClaim { Id = r.Id, Name = r.Name, CreatedDate = seedDate, Status = true }));
+            });
+
+            modelBuilder.Entity<UserOperationClaim>(e => e.HasIndex(x => new { x.UserId, x.OperationClaimId }).IsUnique());
+
+            // --- Tanımlar ---
+            modelBuilder.Entity<Bolum>(e =>
+            {
+                e.Property(x => x.Ad).HasMaxLength(200).IsRequired();
+                e.HasIndex(x => x.Ad).IsUnique();
+            });
+
+            modelBuilder.Entity<Ders>(e =>
+            {
+                e.Property(x => x.Ad).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Kod).HasMaxLength(50).IsRequired();
+                e.HasIndex(x => x.Kod).IsUnique();
+            });
+
+            modelBuilder.Entity<Derslik>(e =>
+            {
+                e.Property(x => x.Ad).HasMaxLength(100).IsRequired();
+                e.HasIndex(x => x.Ad).IsUnique();
+            });
+
+            modelBuilder.Entity<AkademikPersonel>(e =>
+            {
+                e.Property(x => x.Ad).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Unvan).HasMaxLength(100).IsRequired();
+                e.HasIndex(x => x.UserId).IsUnique();
+            });
+
+            modelBuilder.Entity<Ogrenci>(e =>
+            {
+                e.Property(x => x.OgrenciNo).HasMaxLength(20).IsRequired();
+                e.Property(x => x.Ad).HasMaxLength(100).IsRequired();
+                e.Property(x => x.Soyad).HasMaxLength(100).IsRequired();
+                e.HasIndex(x => x.OgrenciNo).IsUnique();
+                e.HasIndex(x => x.UserId).IsUnique();
+                e.HasIndex(x => x.BolumId);
+            });
+
+            // --- İlişki tabloları (aynı eşleşme iki kez eklenemez) ---
+            modelBuilder.Entity<DersBolum>(e => e.HasIndex(x => new { x.DersId, x.BolumId }).IsUnique());
+            modelBuilder.Entity<DerslikBolum>(e => e.HasIndex(x => new { x.DerslikId, x.BolumId }).IsUnique());
+            modelBuilder.Entity<BolumAkademikPersoneller>(e => e.HasIndex(x => new { x.BolumId, x.AkademikPersonelId }).IsUnique());
+            modelBuilder.Entity<DersBolumAkademikPersonel>(e =>
+            {
+                e.HasIndex(x => new { x.DersId, x.BolumId, x.AkademikPersonelId }).IsUnique();
+                e.HasIndex(x => x.AkademikPersonelId);
+            });
+
+            // --- Sınavlar ---
+            modelBuilder.Entity<SinavDetay>(e =>
+            {
+                e.HasIndex(x => x.SinavTarihi);
+                e.HasIndex(x => x.DersBolumAkademikPersonelId);
+            });
+            modelBuilder.Entity<SinavDerslik>(e =>
+            {
+                e.HasIndex(x => x.SinavDetayId);
+                e.HasIndex(x => x.DerslikId);
+                e.HasIndex(x => x.GozetmenId);
+            });
+
+            modelBuilder.Entity<AkademikPersonelMusaitlik>(e => e.HasIndex(x => new { x.AkademikPersonelId, x.BaslangicTarihi }));
+
+            // --- Duyuru ve bildirimler ---
+            modelBuilder.Entity<Notification>(e =>
+            {
+                e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Message).HasMaxLength(2000).IsRequired();
+                e.Property(x => x.Type).HasMaxLength(20).IsRequired();
+                e.Property(x => x.ActionUrl).HasMaxLength(500);
+                e.Property(x => x.RelatedEntityType).HasMaxLength(50);
+                e.HasIndex(x => new { x.UserId, x.IsRead });
+            });
+            modelBuilder.Entity<Announcement>(e =>
+            {
+                e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Type).HasMaxLength(30).IsRequired();
+                e.Property(x => x.TargetAudience).HasMaxLength(50).IsRequired();
+            });
+            modelBuilder.Entity<AnnouncementReadStatus>(e => e.HasIndex(x => new { x.AnnouncementId, x.UserId }).IsUnique());
+        }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

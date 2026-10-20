@@ -5,6 +5,7 @@ using Business.Abstract;
 using Business.Constants;
 using Core.Utilities.Results;
 using Entity.DTOs;
+using Core.Extensions;
 
 namespace API.Controllers
 {
@@ -14,10 +15,12 @@ namespace API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, IConfiguration configuration)
         {
             _authService = authService;
+            _configuration = configuration;
         }
 
         [HttpPost("login")]
@@ -37,13 +40,17 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Genel kayıt. Kayıt olan kullanıcıya hiçbir rol atanmaz; rol ataması yönetici tarafından yapılır.
+        /// Genel kayıt. Varsayılan olarak kapalıdır (Auth:AllowPublicRegistration=false): hesapları yönetici açar.
+        /// Açıksa kayıt olan kullanıcıya hiçbir rol atanmaz; rol ataması yönetici tarafından yapılır.
         /// </summary>
         [HttpPost("register")]
         [AllowAnonymous]
         [EnableRateLimiting("auth")]
         public IActionResult Register(UserForRegisterDto userForRegisterDto)
         {
+            if (!_configuration.GetValue<bool>("Auth:AllowPublicRegistration"))
+                return NotFound();
+
             var userExists = _authService.UserExists(userForRegisterDto.Email);
             if (!userExists.Success)
                 return BadRequest(userExists);
@@ -65,17 +72,12 @@ namespace API.Controllers
         /// </summary>
         [HttpPost("register-ogrenci")]
         [Authorize(Roles = Roles.Yonetici)]
-        public IActionResult RegisterOgrenci(OgrenciRegisterDto ogrenciRegisterDto)
+        public async Task<IActionResult> RegisterOgrenci(OgrenciRegisterDto ogrenciRegisterDto)
         {
-            var userExists = _authService.UserExists(ogrenciRegisterDto.Email);
-            if (!userExists.Success)
-                return BadRequest(userExists);
-
-            var registerResult = _authService.RegisterOgrenci(ogrenciRegisterDto);
-            if (!registerResult.Success)
-                return BadRequest(registerResult);
-
-            return Ok(new SuccessDataResult<UserDto>(UserDto.FromEntity(registerResult.Data), registerResult.Message));
+            var result = await _authService.RegisterOgrenciAsync(ogrenciRegisterDto);
+            if (!result.Success)
+                return BadRequest(result);
+            return Ok(result);
         }
 
         /// <summary>
@@ -95,6 +97,29 @@ namespace API.Controllers
                 return BadRequest(registerResult);
 
             return Ok(new SuccessDataResult<UserDto>(UserDto.FromEntity(registerResult.Data), registerResult.Message));
+        }
+
+        /// <summary>
+        /// Giriş yapmış kullanıcının parolasını değiştirir ve yeni bir token döner. Geçici parolayla giriş yapan
+        /// kullanıcının ("pwd_change" claim'i) kullanabildiği birkaç uçtan biridir.
+        /// </summary>
+        [HttpPost("change-password")]
+        [EnableRateLimiting("auth")]
+        public IActionResult ChangePassword(ChangePasswordDto changePasswordDto)
+        {
+            var userId = User.GetUserId();
+            if (userId == null)
+                return Unauthorized();
+
+            var result = _authService.ChangePassword(userId.Value, changePasswordDto);
+            if (!result.Success)
+                return BadRequest(result);
+
+            var token = _authService.CreateAccessToken(result.Data);
+            if (!token.Success)
+                return BadRequest(token);
+
+            return Ok(new SuccessDataResult<Core.Utilities.Security.JWT.AccessToken>(token.Data, result.Message));
         }
     }
 }

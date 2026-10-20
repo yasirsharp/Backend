@@ -5,6 +5,7 @@ using Business.Abstract;
 using Core.Extensions;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
+using Entity.DTOs;
 
 namespace API.Controllers
 {
@@ -113,43 +114,55 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Yeni öğrenci ekler
+        /// Yeni öğrenci ekler: kullanıcı hesabı (kullanıcı adı = öğrenci no) ve geçici parola oluşturulur.
+        /// Geçici parola yanıtta bir kez döner; öğrenci ilk girişte parolasını değiştirir.
         /// </summary>
         [HttpPost]
         [Authorize(Roles = Roles.Yonetici)]
-        public IActionResult Add(Ogrenci ogrenci)
+        public async Task<IActionResult> Add(OgrenciCreateDto dto)
         {
-            var result = _ogrenciService.Add(ogrenci);
-            if (result.Success)
-                return Created("", result);
-            return BadRequest(result);
-        }
-
-        /// <summary>
-        /// Öğrenci bilgilerini günceller
-        /// </summary>
-        [HttpPut]
-        [Authorize(Roles = Roles.Yonetici)]
-        public IActionResult Update(Ogrenci ogrenci)
-        {
-            var result = _ogrenciService.Update(ogrenci);
+            var result = await _ogrenciService.CreateAsync(dto);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
         }
 
         /// <summary>
-        /// Öğrenci siler
+        /// Toplu öğrenci ekleme (en fazla 1000 satır). Her satır ayrı kaydedilir; yanıt satır bazında sonuç
+        /// ve başarılı satırların geçici parolalarını içerir.
+        /// </summary>
+        [HttpPost("bulk")]
+        [Authorize(Roles = Roles.Yonetici)]
+        [RequestSizeLimit(2_000_000)]
+        public async Task<IActionResult> BulkAdd(List<OgrenciCreateDto> rows)
+        {
+            var result = await _ogrenciService.BulkCreateAsync(rows);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Öğrenci bilgilerini günceller (ad/soyad kullanıcı hesabına da yansır).
+        /// </summary>
+        [HttpPut]
+        [Authorize(Roles = Roles.Yonetici)]
+        public async Task<IActionResult> Update(OgrenciUpdateDto dto)
+        {
+            var result = await _ogrenciService.UpdateAsync(dto);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>
+        /// Öğrenci kaydını siler; kullanıcı hesabı pasifleştirilir.
         /// </summary>
         [HttpDelete("{id}")]
         [Authorize(Roles = Roles.Yonetici)]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var ogrenci = _ogrenciService.GetById(id);
-            if (!ogrenci.Success)
-                return NotFound(ogrenci);
-            
-            var result = _ogrenciService.Delete(ogrenci.Data);
+            var result = await _ogrenciService.DeleteAsync(id);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);

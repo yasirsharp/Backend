@@ -13,6 +13,10 @@ using Core.Utilities.Security.JWT;
 using DataAccess.Concrete.EntityFramework;
 using System.Text;
 using System.Threading.RateLimiting;
+using API.Middleware;
+using API.Startup;
+using Microsoft.AspNetCore.StaticFiles;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +33,21 @@ if (string.IsNullOrWhiteSpace(tokenOptions.SecurityKey) || Encoding.UTF8.GetByte
 
 DuzceUniversiteContext.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection tanımlı değil.");
+
+// Loglar: konsol + günlük dönen dosya (varsayılan logs/api-YYYYMMDD.log, 14 gün saklanır).
+// IIS'te uygulama havuzu kullanıcısının logs klasörüne yazma izni olmalıdır.
+builder.Host.UseSerilog((context, loggerConfiguration) =>
+{
+    var logPath = context.Configuration["Serilog:FilePath"];
+    if (string.IsNullOrWhiteSpace(logPath))
+        logPath = Path.Combine(context.HostingEnvironment.ContentRootPath, "logs", "api-.log");
+
+    loggerConfiguration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext()
+        .WriteTo.Console()
+        .WriteTo.File(logPath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14);
+});
 
 // Add services to the container.
 
@@ -119,7 +138,8 @@ builder.Host
         builder.RegisterModule(new AutofacBusinessModule());
     });
 
-// CORS Policy: sadece yapılandırmada listelenen origin'ler
+// CORS Policy: sadece yapılandırmada listelenen origin'ler.
+// Frontend API ile aynı adresten (wwwroot) sunuluyorsa CORS gerekmez; liste boş kalabilir.
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
@@ -135,7 +155,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Veritabanı hazırlığı (isteğe bağlı migration + ilk yönetici hesabı)
+await DatabaseInitializer.InitializeAsync(app.Configuration, app.Logger);
+
 // Configure the HTTP request pipeline.
+// İstek logu en dışta: ExceptionMiddleware'in hatayı 400/500'e çevirdiği son durum kodu loglanır.
+app.UseSerilogRequestLogging();
 app.ConfigureCustomExceptionMiddleware();
 
 if (app.Environment.IsDevelopment())
@@ -150,14 +175,50 @@ else
 
 app.UseHttpsRedirection();
 
+// Frontend (React) derlenmiş haliyle wwwroot'tan sunulur; böylece API ve arayüz aynı adresten çalışır.
+// index.html önbelleğe alınmaz (yeni sürüm hemen görünsün); dosya adları hash'li olan diğer dosyalar alınabilir.
+var spaFileOptions = new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (ctx.File.Name == "index.html")
+            ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+    }
+};
+app.UseDefaultFiles();
+app.UseStaticFiles(spaFileOptions);
+
 app.UseCors("Frontend");
 
 app.UseRateLimiter();
 
 app.UseAuthentication();
 
+// Geçici parolalı kullanıcı parolasını değiştirene kadar diğer API uçlarını kullanamaz
+app.UseMiddleware<PasswordChangeRequiredMiddleware>();
+
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Sağlık kontrolü (izleme ve kurulum sonrası test için): veritabanına bağlanabiliyor mu?
+app.MapGet("/health", async () =>
+{
+    await using var context = new DuzceUniversiteContext();
+    var canConnect = await context.Database.CanConnectAsync();
+    return canConnect
+        ? Results.Ok(new { status = "Healthy" })
+        : Results.Json(new { status = "Unhealthy", reason = "Veritabanına bağlanılamıyor" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+}).AllowAnonymous();
+
+// Bilinmeyen /api adresleri 404 döner; diğer tüm adresler SPA'nın index.html'ine gider (React Router).
+app.MapFallback("/api/{**rest}", context =>
+{
+    context.Response.StatusCode = StatusCodes.Status404NotFound;
+    return Task.CompletedTask;
+}).AllowAnonymous();
+
+if (File.Exists(Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "index.html")))
+    app.MapFallbackToFile("index.html", spaFileOptions).AllowAnonymous();
 
 app.Run();

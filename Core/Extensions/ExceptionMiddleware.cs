@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -44,10 +44,11 @@ namespace Core.Extensions
                 return httpContext.Response.WriteAsync(new ValidationErrorDetails
                 {
                     StatusCode = httpContext.Response.StatusCode,
-                    Message = "Doğrulama hatası.",
+                    // İlk hata mesajı doğrudan gösterilebilsin diye Message'a da yazılır
+                    Message = validationException.Errors.FirstOrDefault()?.ErrorMessage ?? "Doğrulama hatası.",
                     // Sadece alan adı ve mesaj döner; gönderilen değer (ör. parola) yanıta yansıtılmaz
                     Errors = validationException.Errors
-                        .Select(f => new ValidationFailure(f.PropertyName, f.ErrorMessage))
+                        .Select(f => new ValidationErrorItem(f.PropertyName, f.ErrorMessage))
                         .ToList()
                 }.ToString());
             }

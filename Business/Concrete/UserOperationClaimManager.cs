@@ -36,6 +36,11 @@ namespace Business.Concrete
         {
             try
             {
+                if (_userOperationClaimDal.Get(x => x.UserId == userOperationClaim.UserId &&
+                                                    x.OperationClaimId == userOperationClaim.OperationClaimId) != null)
+                    return new ErrorResult("Kullanıcı bu role zaten sahip.");
+
+                userOperationClaim.Id = 0;
                 _userOperationClaimDal.Add(userOperationClaim);
                 return new SuccessResult(Messages.UserOperationClaimAdded);
             }
