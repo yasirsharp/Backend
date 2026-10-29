@@ -34,6 +34,26 @@ if (string.IsNullOrWhiteSpace(tokenOptions.SecurityKey) || Encoding.UTF8.GetByte
 DuzceUniversiteContext.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection tanımlı değil.");
 
+// Plesk web.config şablonundaki yer tutucular doldurulmadıysa anlaşılır bir hatayla dur
+foreach (var key in new[] { "ConnectionStrings:DefaultConnection", "TokenOptions:SecurityKey", "Seed:AdminEmail", "Seed:AdminPassword" })
+{
+    var value = builder.Configuration[key] ?? "";
+    foreach (var placeholder in new[] { "VERITABANI_", "GUVENLIK_ANAHTARI", "YONETICI_" })
+        if (value.Contains(placeholder))
+            throw new InvalidOperationException(
+                $"{key} ayarında doldurulmamış yer tutucu var ({placeholder}...). web.config dosyasını düzenleyin (docs/PLESK_KURULUM.md).");
+}
+
+// Veritabanı türü: SqlServer (varsayılan) veya MySql (MySQL 8 / MariaDB 10.5+; ör. Plesk test sunucusu)
+var providerSetting = builder.Configuration["Database:Provider"];
+if (!string.IsNullOrWhiteSpace(providerSetting))
+{
+    DuzceUniversiteContext.Provider = Enum.TryParse<DatabaseProvider>(providerSetting, ignoreCase: true, out var provider)
+        ? provider
+        : throw new InvalidOperationException($"Database:Provider geçersiz: '{providerSetting}'. SqlServer veya MySql olmalı.");
+}
+DuzceUniversiteContext.MySqlServerVersion = builder.Configuration["Database:MySqlServerVersion"];
+
 // Loglar: konsol + günlük dönen dosya (varsayılan logs/api-YYYYMMDD.log, 14 gün saklanır).
 // IIS'te uygulama havuzu kullanıcısının logs klasörüne yazma izni olmalıdır.
 builder.Host.UseSerilog((context, loggerConfiguration) =>

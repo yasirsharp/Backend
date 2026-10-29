@@ -5,6 +5,7 @@
 .EXAMPLE
   .\scripts\publish.ps1 -FrontendPath ..\sinav-takvimi-frontend
   .\scripts\publish.ps1 -FrontendPath C:\kaynak\sinav-takvimi-frontend -Output C:\yayin\sinav-takvimi
+  .\scripts\publish.ps1 -FrontendPath ..\sinav-takvimi-frontend -Runtime win-x64 -WebConfig deploy\web.plesk.config
 
 .NOTES
   Gerekenler: .NET 8 SDK, Node.js 20+ (npm). Çıktı klasörünün içeriği IIS sitesinin fiziksel yoluna kopyalanır.
@@ -13,7 +14,11 @@
 param(
     [Parameter(Mandatory = $true)][string]$FrontendPath,
     [string]$Output = (Join-Path $PSScriptRoot "..\publish"),
-    [switch]$SkipFrontend
+    [switch]$SkipFrontend,
+    # Ör. win-x64: sadece o platformun çalışma zamanı dosyaları pakete girer (paket küçülür)
+    [string]$Runtime = "",
+    # Pakete kopyalanacak web.config şablonu (Plesk + MySQL için deploy\web.plesk.config)
+    [string]$WebConfig = "deploy\web.config"
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,10 +49,19 @@ Write-Host "==> dotnet publish -> $Output" -ForegroundColor Cyan
 if (Test-Path $Output) { Remove-Item $Output -Recurse -Force }
 dotnet publish $apiProject -c Release -o $Output
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish başarısız" }
+if ($Runtime) {
+    # Taşınabilir paketten hedef platform dışındaki yerel kütüphaneleri çıkar (ör. win-x64 → sadece win, win-x64 kalır).
+    # RID'li publish, Core'daki eski Microsoft.AspNetCore.Mvc.Core 2.x paket zinciri yüzünden NU1605 veriyor.
+    $family = $Runtime.Split('-')[0]
+    Get-ChildItem (Join-Path $Output "runtimes") -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne $Runtime -and $_.Name -ne $family } |
+        Remove-Item -Recurse -Force
+}
 
-Copy-Item (Join-Path $root "deploy\web.config") (Join-Path $Output "web.config") -Force
+Copy-Item (Join-Path $root $WebConfig) (Join-Path $Output "web.config") -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $Output "logs") | Out-Null
 Copy-Item (Join-Path $root "db\schema.sql") (Join-Path $Output "schema.sql") -Force
+Copy-Item (Join-Path $root "db\schema.mysql.sql") (Join-Path $Output "schema.mysql.sql") -Force
 
 Write-Host ""
 Write-Host "Hazır: $Output" -ForegroundColor Green

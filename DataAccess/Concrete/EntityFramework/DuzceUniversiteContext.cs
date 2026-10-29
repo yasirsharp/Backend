@@ -47,6 +47,28 @@ namespace DataAccess.Concrete.EntityFramework
         public static string? ConnectionString { get; set; }
 
         /// <summary>
+        /// Veritabanı türü ("Database:Provider" ayarı). Varsayılan SQL Server; test sunucuları için MySQL/MariaDB.
+        /// MySQL migration'ları ayrı DataAccess.MySql projesindedir (EF, bir assembly'de bir context için tek
+        /// model snapshot'a izin verir).
+        /// </summary>
+        public static DatabaseProvider Provider { get; set; } = DatabaseProvider.SqlServer;
+
+        /// <summary>MySQL sürümü (ör. "8.0.36-mysql", "10.11-mariadb"). Boşsa ilk bağlantıda sunucudan okunur.</summary>
+        public static string? MySqlServerVersion { get; set; }
+
+        public const string MySqlMigrationsAssembly = "DataAccess.MySql";
+
+        private static ServerVersion? _detectedMySqlVersion;
+
+        private static ServerVersion GetMySqlVersion()
+        {
+            if (!string.IsNullOrWhiteSpace(MySqlServerVersion))
+                return ServerVersion.Parse(MySqlServerVersion);
+            // Her context oluşturulduğunda sunucuya sormamak için bir kez algılanır
+            return _detectedMySqlVersion ??= ServerVersion.AutoDetect(ConnectionString);
+        }
+
+        /// <summary>
         /// Rollerin sabit ID'leri. Tohum verisi (HasData) ile oluşturulur; kod rol adlarını kullanır.
         /// </summary>
         public static readonly (int Id, string Name)[] SeedRoles =
@@ -61,6 +83,13 @@ namespace DataAccess.Concrete.EntityFramework
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            if (Database.IsMySql())
+            {
+                // SQL Server'daki gibi büyük/küçük harfe duyarsız karşılaştırma (e-posta, kullanıcı adı, arama).
+                // Türkçe collation kullanılmaz: I → ı dönüşümü e-posta karşılaştırmalarını bozar.
+                modelBuilder.HasCharSet("utf8mb4").UseCollation("utf8mb4_unicode_ci");
+            }
+
             // --- Kullanıcılar ve yetkiler ---
             modelBuilder.Entity<User>(e =>
             {
@@ -173,7 +202,20 @@ namespace DataAccess.Concrete.EntityFramework
             if (string.IsNullOrWhiteSpace(ConnectionString))
                 throw new InvalidOperationException("Veritabanı bağlantı dizesi yapılandırılmamış (ConnectionStrings:DefaultConnection).");
 
-            optionsBuilder.UseSqlServer(ConnectionString);
+            if (Provider == DatabaseProvider.MySql)
+                optionsBuilder.UseMySql(ConnectionString, GetMySqlVersion(),
+                    mysql => mysql.MigrationsAssembly(MySqlMigrationsAssembly));
+            else
+                optionsBuilder.UseSqlServer(ConnectionString);
         }
     }
-} 
+}
+
+namespace DataAccess.Concrete.EntityFramework
+{
+    public enum DatabaseProvider
+    {
+        SqlServer,
+        MySql
+    }
+}

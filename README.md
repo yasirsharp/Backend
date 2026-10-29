@@ -6,7 +6,8 @@ Katmanlar: `Core` → `Entity` → `DataAccess` → `Business` → `API`. Birim 
 Arayüz: [sinav-takvimi-frontend](https://github.com/yasirsharp/sinav-takvimi-frontend). Sunucuda derlenmiş
 arayüz `API/wwwroot` içinden sunulur; arayüz ve API aynı adresten çalışır.
 
-**Sunucuya kurulum (IIS):** [docs/KURULUM.md](docs/KURULUM.md)
+**Sunucuya kurulum (IIS + SQL Server):** [docs/KURULUM.md](docs/KURULUM.md) ·
+**Plesk (Windows) + MySQL test kurulumu:** [docs/PLESK_KURULUM.md](docs/PLESK_KURULUM.md)
 
 > `Frontend1/` eski MVC arayüzüdür ve artık kullanılmamaktadır.
 
@@ -81,15 +82,22 @@ Sınav eklenince, değişince veya silinince dersin öğretim elemanına ve göz
 
 ## Veritabanı
 
-Şema EF Core migration'larıyla yönetilir (`DataAccess/Migrations`). Roller migration içinde sabit ID'lerle
+Varsayılan veritabanı SQL Server'dır. Test sunucuları için MySQL 8 / MariaDB 10.5+ da desteklenir
+(`Database:Provider=MySql`). Sınav planlama kilidi SQL Server'da `sp_getapplock`, MySQL'de `GET_LOCK` ile yapılır.
+
+Şema EF Core migration'larıyla yönetilir: SQL Server `DataAccess/Migrations`, MySQL `DataAccess.MySql/Migrations`. Roller migration içinde sabit ID'lerle
 tohumlanır; kod rollere adlarıyla erişir.
 
-- Sunucu kurulumu ve güncelleme: `db/schema.sql` (idempotent, tekrar çalıştırmak güvenlidir).
+- Sunucu kurulumu ve güncelleme: `db/schema.sql` / `db/schema.mysql.sql` (idempotent, tekrar çalıştırmak
+  güvenlidir) veya `Database:MigrateOnStartup=true`.
 - Model değişince:
 
 ```bash
 dotnet ef migrations add <Ad> --project DataAccess --startup-project DataAccess --output-dir Migrations
 dotnet ef migrations script --idempotent --project DataAccess --startup-project DataAccess -o db/schema.sql
+# MySQL için de:
+dotnet ef migrations add <Ad> --project DataAccess.MySql --startup-project DataAccess.MySql --output-dir Migrations
+dotnet ef migrations script --idempotent --project DataAccess.MySql --startup-project DataAccess.MySql -o db/schema.mysql.sql
 ```
 
 `db-scripts/` altındaki eski betikler yeni kurulumda kullanılmaz.

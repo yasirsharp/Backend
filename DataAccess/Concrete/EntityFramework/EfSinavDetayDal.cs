@@ -25,7 +25,7 @@ namespace DataAccess.Concrete.EntityFramework
             using DuzceUniversiteContext context = new DuzceUniversiteContext();
             using var transaction = context.Database.BeginTransaction();
 
-            AcquireSinavPlanlamaLock(context);
+            using var planlamaKilidi = AcquireSinavPlanlamaLock(context);
 
             // Saat dönüşümleri
             TimeOnly baslangicSaati = TimeOnly.Parse(sinavKayitDTO.SinavBaslangicSaati);
@@ -133,16 +133,45 @@ namespace DataAccess.Concrete.EntityFramework
         /// <summary>
         /// Sınav yazma işlemlerini (ekleme/güncelleme) veritabanı seviyesinde sıraya sokar.
         /// Önceden çakışma kontrolü ile kayıt ayrı context'lerde yapıldığı için aynı anda gelen iki
-        /// istek aynı derslik/gözetmen için çakışan sınav oluşturabiliyordu. Kilit transaction
-        /// bitince (commit/rollback) otomatik bırakılır.
+        /// istek aynı derslik/gözetmen için çakışan sınav oluşturabiliyordu.
+        /// SQL Server: sp_getapplock, transaction bitince (commit/rollback) otomatik bırakılır.
+        /// MySQL: GET_LOCK oturuma bağlıdır; dönen nesne dispose edilince RELEASE_LOCK ile bırakılır.
+        /// Transaction'dan sonra tanımlanmalıdır (önce kilit bırakılır, sonra transaction kapanır).
         /// </summary>
-        private static void AcquireSinavPlanlamaLock(DuzceUniversiteContext context)
+        private static IDisposable AcquireSinavPlanlamaLock(DuzceUniversiteContext context)
         {
+            const string hata = "Sınav planlama kilidi alınamadı, lütfen tekrar deneyin.";
+
+            if (DuzceUniversiteContext.Provider == DatabaseProvider.MySql)
+            {
+                var sonuc = context.Database
+                    .SqlQueryRaw<long?>("SELECT GET_LOCK('SinavPlanlama', 15) AS Value")
+                    .AsEnumerable()
+                    .FirstOrDefault();
+                if (sonuc != 1)
+                    throw new InvalidOperationException(hata);
+                return new KilitBirakici(() => context.Database.ExecuteSqlRaw("DO RELEASE_LOCK('SinavPlanlama')"));
+            }
+
             context.Database.ExecuteSqlRaw(
                 "DECLARE @result int; " +
                 "EXEC @result = sp_getapplock @Resource = N'SinavPlanlama', @LockMode = N'Exclusive', " +
                 "@LockOwner = N'Transaction', @LockTimeout = 15000; " +
-                "IF @result < 0 THROW 50001, N'Sınav planlama kilidi alınamadı, lütfen tekrar deneyin.', 1;");
+                "IF @result < 0 THROW 50001, N'" + hata + "', 1;");
+            return new KilitBirakici(null);
+        }
+
+        private sealed class KilitBirakici : IDisposable
+        {
+            private Action? _birak;
+            public KilitBirakici(Action? birak) => _birak = birak;
+
+            public void Dispose()
+            {
+                var birak = _birak;
+                _birak = null;
+                birak?.Invoke();
+            }
         }
 
         /// <summary>
@@ -490,7 +519,7 @@ namespace DataAccess.Concrete.EntityFramework
             using DuzceUniversiteContext context = new DuzceUniversiteContext();
             using var transaction = context.Database.BeginTransaction();
 
-            AcquireSinavPlanlamaLock(context);
+            using var planlamaKilidi = AcquireSinavPlanlamaLock(context);
 
             var conflict = FindConflict(context, sinavGuncelleDTO.Derslikler, sinavGuncelleDTO.DersBolumAkademikPersonelId,
                 sinavGuncelleDTO.SinavBaslangicSaati, sinavGuncelleDTO.SinavBitisSaati, sinavGuncelleDTO.SinavTarihi,

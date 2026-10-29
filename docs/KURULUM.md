@@ -1,6 +1,8 @@
 # Kurulum (Windows Server / IIS)
 
 Bu belge, Sınav Takvimi'ni üniversite sunucusunda **tek bir IIS sitesi** olarak çalıştırmayı anlatır.
+
+> Plesk (Windows) ve MySQL ile test kurulumu için: [PLESK_KURULUM.md](PLESK_KURULUM.md).
 Arayüz (React) ve API aynı adresten sunulur: `https://sinav.duzce.edu.tr/` arayüz, `/api/...` API'dir.
 Bu yüzden CORS ayarı gerekmez.
 
@@ -65,6 +67,8 @@ yorum satırlarını da doldurabilirsiniz. Bu durumda dosyanın okuma iznini kı
 | `Seed__AdminUserName` | Hayır | Boşsa e-postanın @ öncesi kullanılır |
 | `ASPNETCORE_ENVIRONMENT` | Hayır | `web.config`'te `Production` olarak gelir |
 | `Auth__AllowPublicRegistration` | Hayır | Varsayılan `false`. Hesapları yönetici açar. |
+| `Database__Provider` | Hayır | `SqlServer` (varsayılan) veya `MySql` (MySQL 8 / MariaDB 10.5+). |
+| `Database__MySqlServerVersion` | Hayır | Sadece MySQL: ör. `8.0.36-mysql` veya `10.11-mariadb`. Boşsa sunucudan okunur. |
 | `Database__MigrateOnStartup` | Hayır | `true` ise açılışta şemayı kendisi günceller. Varsayılan `false`: şema `schema.sql` ile kurulur. Açmak için uygulama kullanıcısının `db_owner` olması gerekir. |
 | `Serilog__FilePath` | Hayır | Log dosyası yolu. Varsayılan `logs\api-.log` (günlük döner, 14 gün saklanır). |
 | `RateLimiting__AuthPermitPerMinute` | Hayır | Giriş uçlarına IP başına dakikada izin verilen istek (varsayılan 100). Kampüs NAT/proxy arkasındaki kullanıcılar aynı IP'yi paylaştığı için düşük tutmayın; hesap başına kaba kuvvet koruması ayrıca vardır (15 dakikada 5 hatalı deneme → 15 dakika kilit). |
