@@ -7,7 +7,8 @@ Arayüz: [sinav-takvimi-frontend](https://github.com/yasirsharp/sinav-takvimi-fr
 arayüz `API/wwwroot` içinden sunulur; arayüz ve API aynı adresten çalışır.
 
 **Sunucuya kurulum (IIS + SQL Server):** [docs/KURULUM.md](docs/KURULUM.md) ·
-**Plesk (Windows) + MySQL test kurulumu:** [docs/PLESK_KURULUM.md](docs/PLESK_KURULUM.md)
+**Plesk (Windows) + MySQL test kurulumu:** [docs/PLESK_KURULUM.md](docs/PLESK_KURULUM.md) ·
+**Test sitesine otomatik yükleme (GitHub Actions, FTP):** [docs/PLESK_KURULUM.md → Otomatik güncelleme](docs/PLESK_KURULUM.md#otomatik-güncelleme-github-actions)
 
 > `Frontend1/` eski MVC arayüzüdür ve artık kullanılmamaktadır.
 

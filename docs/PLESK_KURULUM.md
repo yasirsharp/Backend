@@ -110,12 +110,91 @@ Kaydettiğinizde IIS uygulamayı kendisi yeniden başlatır.
 
 Takıldığınız yerde hata mesajını veya log dosyasının son satırlarını gönderin.
 
-## Güncelleme (yeni paket geldiğinde)
+## Güncelleme (yeni paket geldiğinde, elle)
+
+Otomatik yol için aşağıdaki "Otomatik güncelleme" bölümüne bakın.
+
 
 1. Belge köküne `app_offline.htm` adlı boş bir dosya oluşturun; site bakım moduna geçer.
 2. Yeni zip'i yükleyip çıkarın. **`web.config`'in üzerine yazmayın**: zip'teki web.config'i atlayın veya önce
    kendi dosyanızın yedeğini alın. `logs` klasörü kalabilir.
 3. `app_offline.htm`'yi silin. Veritabanı şeması varsa açılışta otomatik güncellenir.
+
+## Otomatik güncelleme (GitHub Actions)
+
+Elle zip yüklemek yerine yeni sürüm GitHub'dan tek tıkla gönderilebilir. **Test sitesine yükle** workflow'u
+(`.github/workflows/deploy-test.yml`) şunları yapar:
+
+1. Arayüzü ve API'yi derler, birim testlerini ve denetimleri çalıştırır. Bir test kırılırsa hiçbir şey yüklenmez.
+2. Siteyi bakım moduna alır (`app_offline.htm`; ziyaretçi "Sistem güncelleniyor" sayfası görür).
+3. FTP ile **yalnızca değişen dosyaları** yükler, artık kullanılmayan eski dosyaları siler.
+   - **`web.config` ve `logs` klasörüne asla dokunmaz.** Veritabanı parolası ve güvenlik anahtarı sunucuda
+     kalır.
+   - Fark bilgisi sunucuda `.ftp-deploy-sync-state.json` dosyasında tutulur; bu dosyayı silmeyin. Silinirse
+     sonraki yükleme her şeyi baştan gönderir, başka bir zararı yoktur.
+4. Bakım modunu kaldırır. Yükleme yarıda kalsa bile kaldırır.
+5. `/health` adresinin "Healthy" döndüğünü ve yayındaki arayüzün yeni derleme olduğunu kontrol eder.
+
+### Bir kez yapılacaklar
+
+**a) Plesk'te FTP hesabı**
+
+1. **Web Siteleri ve Alan Adları** → `hafiz.yasirsharp.com.tr` → **FTP Erişimi** → **FTP Hesabı Ekle**.
+2. Kullanıcı adı ve güçlü bir parola belirleyin (ör. `hafiz-deploy`).
+3. **Ana dizin** olarak subdomain'in belge kökünü seçin; `API.dll` ve `web.config`'in bulunduğu klasör.
+4. FTP sunucu adresi genelde ana alan adı (`yasirsharp.com.tr`) veya sunucunun IP adresidir.
+5. Tercihen FTPS (FTP üzerinden TLS) açık olsun: Araçlar ve Ayarlar → **FTP Ayarları** (Plesk sürümüne göre
+   "SSL/TLS" seçeneği). Güvenlik duvarında 21 ve pasif FTP portları açık olmalıdır.
+
+Bir FTP istemcisiyle (ör. FileZilla) bağlanıp `web.config`'i gördüğünüzü doğrulayın.
+
+**b) GitHub'da sırlar**
+
+Backend reposunda: **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+
+| Ad | Değer |
+|---|---|
+| `FTP_SERVER` | FTP sunucu adresi, yalnızca ad veya IP (ör. `yasirsharp.com.tr`); port 21 kullanılır |
+| `FTP_USERNAME` | (a)'daki FTP kullanıcı adı |
+| `FTP_PASSWORD` | (a)'daki parola |
+| `FTP_REMOTE_DIR` | İsteğe bağlı. FTP ana dizini belge kökü değilse, ana dizine göre klasör (ör. `hafiz.yasirsharp.com.tr`). Boş bırakın. |
+
+Sırlar loglarda gizlenir; repoya veya sohbete yazmayın.
+
+**c) İsteğe bağlı ikinci onay**
+
+**Settings** → **Environments** → `test-hafiz` (ilk çalıştırmada kendiliğinden oluşur) → **Required reviewers**
+ile kendinizi ekleyin. Her yükleme bir de "Approve" ekranında onay bekler.
+
+**d) Workflow'un görünmesi**
+
+GitHub, elle çalıştırılan workflow'ların **Run workflow** düğmesini dosya reponun varsayılan dalında (`main`)
+bulunduğunda gösterir. Uygulama kodu main'e birleştirilmeden yalnızca bu tek dosyanın main'e eklenmesi yeter;
+çalıştırırken dal olarak test dalı seçilir ve o dalın kodu yüklenir.
+
+### Her güncellemede
+
+1. GitHub → **Actions** → **Test sitesine yükle** → **Run workflow**.
+2. **Use workflow from:** `claude/eager-brahmagupta-f1g0id` (backend dalı).
+3. **Onay:** `hafiz` yazın. **Arayüz dalı** varsayılan kalabilir.
+4. Yaklaşık 8–12 dakika sürer. Bitince özet sayfasında backend ve arayüz commit'leri ile sürüm yazar. Sitenin
+   alt bilgisindeki sürüm de (ör. `v0.10.0 (f0cf193)`) yeni olmalıdır.
+
+İlk çalıştırmada fark bilgisi olmadığı için tüm paket (~80 MB) gönderilir; sonrakiler genelde birkaç MB'tır.
+
+### Sorun giderme
+
+| Belirti | Çözüm |
+|---|---|
+| "Eksik GitHub secret" | (b)'deki sırları ekleyin; adlar birebir aynı olmalı. |
+| `530 Login incorrect` / `Login authentication failed` | FTP kullanıcı adı veya parola yanlış. Plesk'te FTP hesabının parolasını yenileyip sırrı güncelleyin. |
+| `certificate`/`self signed`/`unable to verify` | Sunucunun FTP sertifikası doğrulanamıyor. Çalıştırırken **FTPS sertifikasını doğrula** seçeneğini kapatın. |
+| `SSL connection` / `AUTH TLS` reddedildi | Sunucuda FTPS kapalı. Plesk'te açın veya **ftp_protokol** olarak `ftp` seçin (parola şifresiz gider). |
+| Bağlantı zaman aşımı / dizin listelenemiyor | Güvenlik duvarı pasif FTP portlarını engelliyor. Windows Güvenlik Duvarı'nda IIS FTP pasif port aralığını açın. |
+| `550` izin hatası | FTP hesabının ana dizinine yazma izni yok veya `FTP_REMOTE_DIR` yanlış. |
+| Sağlık kontrolü başarısız | Yükleme tamam ama uygulama açılmadı. `logs\api-*.log` dosyasına bakın; site bakım modunda kalmaz. |
+| "Yayındaki index.html yeni derlemeyi göstermiyor" | Tarayıcı/proxy önbelleği veya yükleme eksik. Workflow'u tekrar çalıştırın. |
+| Site "Sistem güncelleniyor" sayfasında kaldı | Dosya Yöneticisi'nden belge kökündeki `app_offline.htm` dosyasını silin. |
 
 ## Veri ve yedek
 
