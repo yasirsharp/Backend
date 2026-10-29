@@ -1,0 +1,212 @@
+name: Test sitesine yükle
+
+# Elle çalıştırılır: Actions → "Test sitesine yükle" → Run workflow.
+# Arayüzü ve API'yi derler, test eder ve FTP ile https://hafiz.yasirsharp.com.tr adresine yükler.
+# Sunucudaki web.config (veritabanı parolası, güvenlik anahtarı) ve logs klasörüne dokunulmaz.
+# Kurulum: docs/PLESK_KURULUM.md → "Otomatik güncelleme (GitHub Actions)".
+
+on:
+  workflow_dispatch:
+    inputs:
+      onay:
+        description: 'Onay için "hafiz" yazın'
+        required: true
+      frontend_ref:
+        description: Arayüz reposunun dalı, etiketi veya commit'i
+        required: true
+        default: claude/eager-brahmagupta-f1g0id
+      ftp_protokol:
+        description: "ftps önerilir; sunucu desteklemiyorsa ftp (parola şifresiz gider)"
+        type: choice
+        options: [ftps, ftp]
+        default: ftps
+      sertifika_dogrula:
+        description: FTPS sertifikasını doğrula (sunucu kendinden imzalı sertifika kullanıyorsa kapatın)
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-test-hafiz
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SITE_URL: https://hafiz.yasirsharp.com.tr
+  FRONTEND_REPO: yasirsharp/sinav-takvimi-frontend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: test-hafiz
+      url: https://hafiz.yasirsharp.com.tr
+    steps:
+      - name: Onay ve ayar kontrolü
+        env:
+          ONAY: ${{ inputs.onay }}
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          if [ "$ONAY" != "hafiz" ]; then
+            echo "::error::Onay metni yanlış. Yüklemek için onay alanına hafiz yazın."
+            exit 1
+          fi
+          missing=""
+          [ -n "$FTP_SERVER" ] || missing="$missing FTP_SERVER"
+          [ -n "$FTP_USERNAME" ] || missing="$missing FTP_USERNAME"
+          [ -n "$FTP_PASSWORD" ] || missing="$missing FTP_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Eksik GitHub secret:$missing (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+
+      - name: Backend kodunu al
+        uses: actions/checkout@v4
+
+      - name: Arayüz kodunu al
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPO }}
+          ref: ${{ inputs.frontend_ref }}
+          path: _frontend
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: _frontend/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Backend testleri
+        run: dotnet test Tests/Tests.csproj -c Release
+
+      - name: Paketi hazırla (arayüz wwwroot içinde, sadece Windows dosyaları)
+        run: RUNTIME=win-x64 scripts/publish.sh _frontend "$RUNNER_TEMP/site"
+
+      - name: Arayüz denetimi ve birim testleri
+        working-directory: _frontend
+        run: |
+          npm run lint
+          npx vitest run
+
+      - name: Sunucuya özel dosyaları paketten çıkar
+        run: |
+          SITE="$RUNNER_TEMP/site"
+          # web.config sunucuda elle doldurulmuş sırları içerir; asla gönderilmez
+          rm -f "$SITE/web.config"
+          rm -rf "$SITE/logs"
+          test -f "$SITE/API.dll"
+          test -f "$SITE/wwwroot/index.html"
+          echo "Paket: $(du -sh "$SITE" | cut -f1), $(find "$SITE" -type f | wc -l) dosya"
+
+      - name: FTP bağlantı ayarları
+        id: ftp
+        env:
+          FTP_REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
+          PROTOKOL: ${{ inputs.ftp_protokol }}
+          DOGRULA: ${{ inputs.sertifika_dogrula }}
+        run: |
+          # Uzak klasör FTP kullanıcısının ana klasörüne göredir; boşsa ana klasör (Plesk'te belge kökü)
+          dir="${FTP_REMOTE_DIR#/}"
+          [ -z "$dir" ] || [ "${dir%/}" != "$dir" ] || dir="$dir/"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          curl_opts="--silent --show-error --fail --retry 3 --connect-timeout 30"
+          if [ "$PROTOKOL" = "ftps" ]; then
+            curl_opts="$curl_opts --ssl-reqd"
+            [ "$DOGRULA" = "true" ] || curl_opts="$curl_opts --insecure"
+          fi
+          echo "curl_opts=$curl_opts" >> "$GITHUB_OUTPUT"
+          [ "$DOGRULA" = "true" ] && echo "security=strict" >> "$GITHUB_OUTPUT" || echo "security=loose" >> "$GITHUB_OUTPUT"
+
+      - name: Bakım moduna al (app_offline.htm)
+        id: offline
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          DIR: ${{ steps.ftp.outputs.dir }}
+          CURL_OPTS: ${{ steps.ftp.outputs.curl_opts }}
+        run: |
+          cat > "$RUNNER_TEMP/app_offline.htm" <<'HTML'
+          <!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+          <meta http-equiv="refresh" content="20"><title>Güncelleniyor · Sınav Takvimi</title></head>
+          <body style="font-family:system-ui,sans-serif;text-align:center;padding:64px 16px;color:#0b2a4a">
+          <h1>Sistem güncelleniyor</h1><p>Birkaç dakika içinde tekrar açılacak. Sayfa kendiliğinden yenilenir.</p></body></html>
+          HTML
+          curl $CURL_OPTS --user "$FTP_USERNAME:$FTP_PASSWORD" -T "$RUNNER_TEMP/app_offline.htm" "ftp://$FTP_SERVER/${DIR}app_offline.htm"
+          # IIS uygulamayı durdurup DLL'leri bıraksın
+          sleep 10
+
+      - name: Değişen dosyaları yükle
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ inputs.ftp_protokol }}
+          security: ${{ steps.ftp.outputs.security }}
+          local-dir: ${{ runner.temp }}/site/
+          server-dir: ./${{ steps.ftp.outputs.dir }}
+          # Sunucudaki fark bilgisi bu dosyada tutulur; sonraki yüklemelerde yalnızca değişenler gider
+          state-name: .ftp-deploy-sync-state.json
+          exclude: |
+            web.config
+            logs/**
+            app_offline.htm
+            **/.git*
+            **/.git*/**
+          timeout: 120000
+          log-level: standard
+
+      - name: Bakım modundan çıkar
+        if: always() && steps.offline.outcome == 'success'
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          DIR: ${{ steps.ftp.outputs.dir }}
+          CURL_OPTS: ${{ steps.ftp.outputs.curl_opts }}
+        run: |
+          # Yükleme yarıda kalsa bile site bakım sayfasında kalmasın
+          curl $CURL_OPTS --user "$FTP_USERNAME:$FTP_PASSWORD" --list-only -o /dev/null \
+            -Q "DELE ${DIR}app_offline.htm" "ftp://$FTP_SERVER/${DIR}"
+
+      - name: Sağlık kontrolü
+        run: |
+          for i in $(seq 1 20); do
+            body=$(curl -s --max-time 20 "$SITE_URL/health" || true)
+            if echo "$body" | grep -q Healthy; then echo "Sağlıklı: $body"; break; fi
+            echo "Bekleniyor ($i): ${body:-yanıt yok}"
+            sleep 6
+          done
+          echo "$body" | grep -q Healthy || { echo "::error::$SITE_URL/health sağlıklı dönmedi. Sunucuda logs\\api-*.log dosyasına bakın."; exit 1; }
+          # Yayındaki arayüz bu derlemenin mi?
+          expected=$(grep -o 'assets/index-[^"]*\.js' "$RUNNER_TEMP/site/wwwroot/index.html" | head -1)
+          curl -sf "$SITE_URL/" | grep -q "$expected" || { echo "::error::Yayındaki index.html yeni derlemeyi göstermiyor ($expected)"; exit 1; }
+          curl -sf -o /dev/null "$SITE_URL/$expected"
+          echo "Arayüz güncel: $expected"
+
+      - name: Özet
+        if: always()
+        env:
+          FRONTEND_REF: ${{ inputs.frontend_ref }}
+          SONUC: ${{ job.status }}
+        run: |
+          fe_sha=$(git -C _frontend rev-parse --short HEAD 2>/dev/null || echo "?")
+          fe_ver=$(node -p "require('./_frontend/package.json').version" 2>/dev/null || echo "?")
+          {
+            echo "### Test sitesi: $SITE_URL"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Backend | \`${GITHUB_REF_NAME}\` @ \`${GITHUB_SHA::7}\` |"
+            echo "| Arayüz | \`$FRONTEND_REF\` @ \`$fe_sha\` (v$fe_ver) |"
+            echo "| Sonuç | $SONUC |"
+          } >> "$GITHUB_STEP_SUMMARY"
