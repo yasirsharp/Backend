@@ -84,6 +84,26 @@ namespace API.Controllers
             return Ok(result);
         }
 
+        /// <summary>SMTP ayarını denemek için yöneticilere deneme e-postası gönderir (sonucu hemen döner)</summary>
+        [HttpPost("test-email")]
+        [Authorize(Roles = Roles.Yonetici)]
+        [EnableRateLimiting("bug-report")]
+        public async Task<IActionResult> SendTestEmail()
+        {
+            if (!_mailer.IsConfigured)
+                return BadRequest(new ErrorResult(
+                    "E-posta ayarlı değil: web.config'te Email__Smtp__Host ve BugReports__NotifyEmails satırları olmalı."));
+            try
+            {
+                await _mailer.SendTestAsync(User.FindFirst(ClaimTypes.Name)?.Value ?? "yönetici");
+                return Ok(new SuccessResult($"Test e-postası gönderildi: {string.Join(", ", _mailer.Recipients())}. Gelen kutusunu ve spam klasörünü kontrol edin."));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ErrorResult($"Test e-postası gönderilemedi: {BugReportMailer.Describe(ex)}"));
+            }
+        }
+
         [HttpGet]
         [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetList([FromQuery] string? state = null)

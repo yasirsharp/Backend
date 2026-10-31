@@ -8,6 +8,7 @@ using Entity.Concrete;
 using Entity.DTOs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using MailKit.Security;
 using Xunit;
 
 namespace Tests
@@ -98,6 +99,27 @@ namespace Tests
 
             var onlyHost = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Email:Smtp:Host"] = "smtp.ornek" }).Build();
             Assert.False(new BugReportMailer(onlyHost, NullLogger<BugReportMailer>.Instance).IsConfigured);
+        }
+
+        private static IConfiguration Smtp(params (string Key, string Value)[] values) =>
+            new ConfigurationBuilder().AddInMemoryCollection(values.ToDictionary(v => v.Key, v => (string?)v.Value)).Build();
+
+        [Fact]
+        public void Security_is_resolved_from_port_and_settings()
+        {
+            Assert.Equal(SecureSocketOptions.SslOnConnect, BugReportMailer.ResolveSecurity(Smtp(("Port", "465"))));
+            Assert.Equal(SecureSocketOptions.StartTlsWhenAvailable, BugReportMailer.ResolveSecurity(Smtp(("Port", "587"))));
+            Assert.Equal(SecureSocketOptions.None, BugReportMailer.ResolveSecurity(Smtp(("Port", "25"), ("EnableSsl", "false"))));
+            Assert.Equal(SecureSocketOptions.StartTls, BugReportMailer.ResolveSecurity(Smtp(("Port", "587"), ("Security", "starttls"))));
+            Assert.Equal(SecureSocketOptions.SslOnConnect, BugReportMailer.ResolveSecurity(Smtp(("Port", "2465"), ("Security", "SslOnConnect"))));
+        }
+
+        [Fact]
+        public void Send_errors_are_explained_in_turkish()
+        {
+            Assert.Contains("parola reddedildi", BugReportMailer.Describe(new AuthenticationException("535")));
+            Assert.Contains("465", BugReportMailer.Describe(new NotSupportedException("The SMTP server does not support the STARTTLS extension.")));
+            Assert.Contains("bağlanılamadı", BugReportMailer.Describe(new System.Net.Sockets.SocketException(10061)));
         }
 
         [Fact]

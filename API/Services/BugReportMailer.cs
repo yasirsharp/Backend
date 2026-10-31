@@ -1,7 +1,10 @@
-using System.Net;
-using System.Net.Mail;
+using System.Net.Sockets;
 using System.Text;
 using Entity.Concrete;
+using MailKit;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace API.Services
 {
@@ -9,6 +12,7 @@ namespace API.Services
     /// Yeni hata bildirimini yöneticilere e-postayla iletir. SMTP ayarı (Email:Smtp:Host) veya alıcı
     /// (BugReports:NotifyEmails) yoksa sessizce atlar; bildirim veritabanında yine kayıtlıdır.
     /// Gönderim arka planda yapılır, isteği bekletmez.
+    /// MailKit kullanılır: .NET'in SmtpClient'ı 465 portundaki doğrudan SSL'i (SMTPS) desteklemez.
     /// </summary>
     public class BugReportMailer
     {
@@ -24,9 +28,42 @@ namespace API.Services
         public bool IsConfigured =>
             !string.IsNullOrWhiteSpace(_configuration["Email:Smtp:Host"]) && Recipients().Length > 0;
 
-        private string[] Recipients() =>
+        public string[] Recipients() =>
             (_configuration["BugReports:NotifyEmails"] ?? "")
                 .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        /// <summary>
+        /// Email:Smtp:Security = Auto (varsayılan) | SslOnConnect | StartTls | None.
+        /// Auto: 465 → doğrudan SSL; EnableSsl=false → şifresiz; diğer → sunucu destekliyorsa STARTTLS.
+        /// </summary>
+        public static SecureSocketOptions ResolveSecurity(IConfiguration smtp)
+        {
+            var setting = (smtp["Security"] ?? "Auto").Trim();
+            if (setting.Equals("SslOnConnect", StringComparison.OrdinalIgnoreCase) || setting.Equals("Ssl", StringComparison.OrdinalIgnoreCase))
+                return SecureSocketOptions.SslOnConnect;
+            if (setting.Equals("StartTls", StringComparison.OrdinalIgnoreCase))
+                return SecureSocketOptions.StartTls;
+            if (setting.Equals("None", StringComparison.OrdinalIgnoreCase))
+                return SecureSocketOptions.None;
+
+            if (smtp.GetValue("Port", 587) == 465)
+                return SecureSocketOptions.SslOnConnect;
+            return smtp.GetValue("EnableSsl", true) ? SecureSocketOptions.StartTlsWhenAvailable : SecureSocketOptions.None;
+        }
+
+        /// <summary>Gönderim hatasını yöneticinin anlayacağı Türkçe açıklamaya çevirir (parola içermez)</summary>
+        public static string Describe(Exception ex) => ex switch
+        {
+            AuthenticationException => $"Kullanıcı adı veya parola reddedildi. Email__Smtp__User tam e-posta adresi olmalı; parolayı kontrol edin. ({ex.Message})",
+            SslHandshakeException => $"SSL bağlantısı kurulamadı. Port ve Email__Smtp__Security ayarını kontrol edin (465 → SslOnConnect, 587 → StartTls). ({ex.Message})",
+            NotSupportedException when ex.Message.Contains("STARTTLS", StringComparison.OrdinalIgnoreCase) =>
+                "Sunucu bu portta STARTTLS desteklemiyor. Port 465 ve Email__Smtp__Security=SslOnConnect deneyin.",
+            SmtpCommandException cmd => $"Posta sunucusu isteği reddetti ({(int)cmd.StatusCode}): {cmd.Message}",
+            SmtpProtocolException => $"Posta sunucusuyla iletişim hatası; port veya güvenlik ayarı yanlış olabilir. ({ex.Message})",
+            SocketException or TimeoutException or OperationCanceledException =>
+                $"Posta sunucusuna bağlanılamadı veya yanıt alınamadı (adres, port, güvenlik duvarı ya da Email__Smtp__Security ayarı). ({ex.Message})",
+            _ => ex.GetBaseException().Message,
+        };
 
         public void SendInBackground(BugReport report, string adminUrl)
         {
@@ -36,48 +73,83 @@ namespace API.Services
             {
                 try
                 {
-                    await SendAsync(report, adminUrl);
+                    await SendReportAsync(report, adminUrl);
+                    _logger.LogInformation("Hata bildirimi #{Id} e-postayla iletildi", report.Id);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Hata bildirimi #{Id} e-postası gönderilemedi", report.Id);
+                    _logger.LogWarning(ex, "Hata bildirimi #{Id} e-postası gönderilemedi: {Reason}", report.Id, Describe(ex));
                 }
             });
         }
 
-        public async Task SendAsync(BugReport report, string adminUrl)
+        public Task SendReportAsync(BugReport report, string adminUrl)
+        {
+            MimePart? attachment = null;
+            if (report.Screenshot != null)
+            {
+                var type = report.ScreenshotContentType ?? "image/jpeg";
+                attachment = new MimePart(type)
+                {
+                    Content = new MimeContent(new MemoryStream(report.Screenshot)),
+                    ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                    ContentTransferEncoding = ContentEncoding.Base64,
+                    FileName = $"hata-{report.Id}.{(type == "image/png" ? "png" : "jpg")}",
+                };
+            }
+            return SendAsync($"[Sınav Takvimi] Hata bildirimi #{report.Id}: {Shorten(report.Description, 60)}",
+                BuildBody(report, adminUrl), attachment);
+        }
+
+        /// <summary>Yönetim ekranındaki "Test e-postası gönder" için; hata olursa fırlatır</summary>
+        public Task SendTestAsync(string requestedBy) =>
+            SendAsync("[Sınav Takvimi] Test e-postası",
+                $"Bu bir deneme e-postasıdır. Hata bildirimleri bu adrese gelecek.\n\nGönderen: {requestedBy}\nZaman: {DateTime.Now:dd.MM.yyyy HH:mm}",
+                null);
+
+        private async Task SendAsync(string subject, string body, MimePart? attachment)
         {
             var smtp = _configuration.GetSection("Email:Smtp");
             var host = smtp["Host"]!;
-            var from = smtp["From"] ?? smtp["User"] ?? throw new InvalidOperationException("Email:Smtp:From ayarı yok.");
+            var port = smtp.GetValue("Port", 587);
+            var from = smtp["From"] ?? smtp["User"] ?? throw new InvalidOperationException("Email__Smtp__From ayarı yok.");
 
-            using var message = new MailMessage
-            {
-                From = new MailAddress(from, "Sınav Takvimi"),
-                Subject = $"[Sınav Takvimi] Hata bildirimi #{report.Id}: {Shorten(report.Description, 60)}",
-                Body = BuildBody(report, adminUrl),
-                BodyEncoding = Encoding.UTF8,
-                SubjectEncoding = Encoding.UTF8,
-            };
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress("Sınav Takvimi", from));
             foreach (var to in Recipients())
-                message.To.Add(to);
-            if (report.Screenshot != null)
-            {
-                var ext = report.ScreenshotContentType == "image/png" ? "png" : "jpg";
-                message.Attachments.Add(new Attachment(new MemoryStream(report.Screenshot), $"hata-{report.Id}.{ext}",
-                    report.ScreenshotContentType ?? "image/jpeg"));
-            }
+                message.To.Add(MailboxAddress.Parse(to));
+            message.Subject = subject;
+            var builder = new BodyBuilder { TextBody = body };
+            if (attachment != null)
+                builder.Attachments.Add(attachment);
+            message.Body = builder.ToMessageBody();
 
-            using var client = new SmtpClient(host, smtp.GetValue("Port", 587))
+            using var client = new SmtpClient { Timeout = 30_000 };
+            // Yalnızca yerel testler için (kendinden imzalı sertifika); üretimde kapalı kalmalı
+            if (smtp.GetValue("AllowInvalidCertificate", false))
+                client.ServerCertificateValidationCallback = (_, _, _, _) => true;
+
+            await client.ConnectAsync(host, port, ResolveSecurity(smtp));
+            var user = smtp["User"];
+            if (!string.IsNullOrEmpty(user))
             {
-                EnableSsl = smtp.GetValue("EnableSsl", true),
-                DeliveryMethod = SmtpDeliveryMethod.Network,
-                Timeout = 30_000,
-            };
-            if (!string.IsNullOrEmpty(smtp["User"]))
-                client.Credentials = new NetworkCredential(smtp["User"], smtp["Password"]);
-            await client.SendMailAsync(message);
-            _logger.LogInformation("Hata bildirimi #{Id} e-postayla iletildi", report.Id);
+                // Sunucu bu bağlantıda giriş sunmuyorsa çoğunlukla şifreli bağlantı bekliyordur
+                if (!client.Capabilities.HasFlag(SmtpCapabilities.Authentication))
+                    throw new InvalidOperationException(
+                        $"Posta sunucusu {port} portunda {(client.IsSecure ? "" : "şifresiz bağlantıda ")}kullanıcı girişi sunmuyor. " +
+                        "Port 465 ve Email__Smtp__Security=SslOnConnect deneyin.");
+                try
+                {
+                    await client.AuthenticateAsync(Encoding.UTF8, user, smtp["Password"] ?? "");
+                }
+                catch (IOException ex)
+                {
+                    // Bazı sunucular hatalı girişte yanıt vermeden bağlantıyı kapatır
+                    throw new AuthenticationException("Sunucu giriş sırasında bağlantıyı kapattı.", ex);
+                }
+            }
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
         }
 
         public static string BuildBody(BugReport report, string adminUrl) =>

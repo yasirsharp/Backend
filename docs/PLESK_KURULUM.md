@@ -101,23 +101,38 @@ Kullanıcılar uygulamada **Alt+Shift+H**, telefonu sallama veya sağ alttaki **
 görüntülü hata bildirimi gönderir. Bildirimler her durumda **Yönetim → Hata bildirimleri** ekranında görünür.
 Ayrıca e-postayla da gelmesini isterseniz:
 
-1. Plesk → **Posta** → **E-posta adresi oluştur** (ör. `bildirim@yasirsharp.com.tr`), parola belirleyin.
+1. Bir posta hesabı açın (Plesk → **Posta** veya kurumsal e-posta sağlayıcınız), ör. `noreply@yasirsharp.com.tr`.
 2. Dosya Yöneticisi → `web.config` → **Metin düzenleyicide düzenle**. `</environmentVariables>` satırının hemen
    üstüne şunları ekleyin (değerleri kendinize göre değiştirin):
 
    ```xml
-   <environmentVariable name="Email__Smtp__Host" value="mail.yasirsharp.com.tr" />
-   <environmentVariable name="Email__Smtp__Port" value="587" />
-   <environmentVariable name="Email__Smtp__EnableSsl" value="true" />
-   <environmentVariable name="Email__Smtp__User" value="bildirim@yasirsharp.com.tr" />
+   <environmentVariable name="Email__Smtp__Host" value="mail.kurumsaleposta.com" />
+   <environmentVariable name="Email__Smtp__Port" value="465" />
+   <environmentVariable name="Email__Smtp__Security" value="SslOnConnect" />
+   <environmentVariable name="Email__Smtp__User" value="noreply@yasirsharp.com.tr" />
    <environmentVariable name="Email__Smtp__Password" value="POSTA_PAROLASI" />
-   <environmentVariable name="Email__Smtp__From" value="bildirim@yasirsharp.com.tr" />
-   <environmentVariable name="BugReports__NotifyEmails" value="sizin@adresiniz.com" />
+   <environmentVariable name="Email__Smtp__From" value="noreply@yasirsharp.com.tr" />
+   <environmentVariable name="BugReports__NotifyEmails" value="admin@yasirsharp.com.tr" />
    ```
 
-   Birden çok alıcı için adresleri virgülle ayırın.
-3. Kaydedin; uygulama kendiliğinden yeniden başlar. E-posta gönderilemezse bildirim yine kaydedilir; nedeni
-   `logs\api-*.log` dosyasında "e-postası gönderilemedi" satırında yazar (çoğunlukla port veya SSL ayarı). Port 465 (doğrudan SSL) desteklenmez; 587 (STARTTLS) kullanın.
+   - `Security`: **465 → `SslOnConnect`** (önerilen), 587 → `StartTls`, şifresiz yerel sunucu (25) → `None`.
+     Yazılmazsa porta göre seçilir.
+   - `User` tam e-posta adresi olmalı; `From` genelde `User` ile aynı olmalıdır.
+   - Birden çok alıcı için adresleri virgülle ayırın. Parolada `&` varsa `&amp;` yazın.
+3. Kaydedin; uygulama kendiliğinden yeniden başlar.
+4. **Yönetim → Hata bildirimleri → Test e-postası gönder.** Başarılıysa alıcıya deneme e-postası gelir (spam
+   klasörüne de bakın). Başarısızsa ekranda nedeni yazar:
+
+| Mesaj | Çözüm |
+|---|---|
+| "…kullanıcı girişi sunmuyor" / "STARTTLS desteklemiyor" | Port `465`, `Security` = `SslOnConnect` yapın. |
+| "Kullanıcı adı veya parola reddedildi" | `User` tam adres mi, parola doğru mu? Parolada `&`, `<`, `"` varsa XML karşılığını yazın. |
+| "SSL bağlantısı kurulamadı" | Port ile `Security` uyumsuz (465 ↔ SslOnConnect, 587 ↔ StartTls). |
+| "bağlanılamadı veya yanıt alınamadı" | Sunucu adı/port yanlış veya sunucunun güvenlik duvarı giden bağlantıyı engelliyor. |
+| "E-posta ayarlı değil" | `Email__Smtp__Host` veya `BugReports__NotifyEmails` satırı eksik ya da yorum içinde. |
+
+Gerçek bildirimlerde gönderim hatası `logs\api-*.log` dosyasına "e-postası gönderilemedi: <neden>" olarak yazılır;
+bildirim her durumda kaydedilir.
 
 ## Sorun giderme
 
