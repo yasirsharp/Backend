@@ -603,6 +603,51 @@ BEGIN
     VALUES (N'20261020155606_InitialCreate', N'9.0.0');
 END;
 
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261031082716_AddBugReport'
+)
+BEGIN
+    CREATE TABLE [BugReports] (
+        [Id] int NOT NULL IDENTITY,
+        [UserId] int NOT NULL,
+        [UserName] nvarchar(200) NOT NULL,
+        [Roles] nvarchar(300) NOT NULL,
+        [Description] nvarchar(2000) NOT NULL,
+        [PageUrl] nvarchar(500) NOT NULL,
+        [AppVersion] nvarchar(100) NOT NULL,
+        [UserAgent] nvarchar(500) NOT NULL,
+        [Viewport] nvarchar(50) NOT NULL,
+        [ClientLog] nvarchar(max) NULL,
+        [Screenshot] varbinary(max) NULL,
+        [ScreenshotContentType] nvarchar(50) NULL,
+        [State] nvarchar(20) NOT NULL,
+        [AdminNote] nvarchar(2000) NULL,
+        [ResolvedDate] datetime2 NULL,
+        [CreatedDate] datetime2 NOT NULL,
+        [UpdatedDate] datetime2 NULL,
+        [Status] bit NOT NULL,
+        CONSTRAINT [PK_BugReports] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261031082716_AddBugReport'
+)
+BEGIN
+    CREATE INDEX [IX_BugReports_State] ON [BugReports] ([State]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261031082716_AddBugReport'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261031082716_AddBugReport', N'9.0.0');
+END;
+
 COMMIT;
 GO
 

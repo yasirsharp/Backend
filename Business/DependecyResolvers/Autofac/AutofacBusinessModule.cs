@@ -68,6 +68,9 @@ namespace Business.DependecyResolvers.Autofac
             // Notification ve Announcement servisleri
             builder.RegisterType<NotificationManager>().As<INotificationService>();
             builder.RegisterType<EfNotificationDal>().As<INotificationDal>();
+
+            builder.RegisterType<BugReportManager>().As<IBugReportService>();
+            builder.RegisterType<EfBugReportDal>().As<IBugReportDal>();
             
             builder.RegisterType<AnnouncementManager>().As<IAnnouncementService>();
             builder.RegisterType<EfAnnouncementDal>().As<IAnnouncementDal>();

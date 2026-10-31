@@ -95,6 +95,30 @@ Kaydettiğinizde IIS uygulamayı kendisi yeniden başlatır.
 5. Test kullanıcılarına adresi, hesap bilgilerini ve arayüz reposundaki `docs/TEST_REHBERI.md` dosyasını
    iletin.
 
+## Hata bildirimlerini e-postayla alma (isteğe bağlı)
+
+Kullanıcılar uygulamada **Alt+Shift+H**, telefonu sallama veya sağ alttaki **Hata bildir** düğmesiyle ekran
+görüntülü hata bildirimi gönderir. Bildirimler her durumda **Yönetim → Hata bildirimleri** ekranında görünür.
+Ayrıca e-postayla da gelmesini isterseniz:
+
+1. Plesk → **Posta** → **E-posta adresi oluştur** (ör. `bildirim@yasirsharp.com.tr`), parola belirleyin.
+2. Dosya Yöneticisi → `web.config` → **Metin düzenleyicide düzenle**. `</environmentVariables>` satırının hemen
+   üstüne şunları ekleyin (değerleri kendinize göre değiştirin):
+
+   ```xml
+   <environmentVariable name="Email__Smtp__Host" value="mail.yasirsharp.com.tr" />
+   <environmentVariable name="Email__Smtp__Port" value="587" />
+   <environmentVariable name="Email__Smtp__EnableSsl" value="true" />
+   <environmentVariable name="Email__Smtp__User" value="bildirim@yasirsharp.com.tr" />
+   <environmentVariable name="Email__Smtp__Password" value="POSTA_PAROLASI" />
+   <environmentVariable name="Email__Smtp__From" value="bildirim@yasirsharp.com.tr" />
+   <environmentVariable name="BugReports__NotifyEmails" value="sizin@adresiniz.com" />
+   ```
+
+   Birden çok alıcı için adresleri virgülle ayırın.
+3. Kaydedin; uygulama kendiliğinden yeniden başlar. E-posta gönderilemezse bildirim yine kaydedilir; nedeni
+   `logs\api-*.log` dosyasında "e-postası gönderilemedi" satırında yazar (çoğunlukla port veya SSL ayarı). Port 465 (doğrudan SSL) desteklenmez; 587 (STARTTLS) kullanın.
+
 ## Sorun giderme
 
 | Belirti | Çözüm |

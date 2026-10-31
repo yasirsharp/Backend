@@ -39,6 +39,9 @@ namespace DataAccess.Concrete.EntityFramework
         // Akademik Personel Müsaitlik Sistemi
         public DbSet<AkademikPersonelMusaitlik> AkademikPersonelMusaitlik { get; set; }
 
+        // Uygulama içinden gönderilen hata bildirimleri
+        public DbSet<BugReport> BugReports { get; set; }
+
         /// <summary>
         /// Uygulama açılışında "ConnectionStrings:DefaultConnection" ayarından atanır.
         /// Bağlantı bilgisi (özellikle parola) koda veya repoya yazılmamalıdır; User Secrets ya da
@@ -192,6 +195,21 @@ namespace DataAccess.Concrete.EntityFramework
                 e.Property(x => x.TargetAudience).HasMaxLength(50).IsRequired();
             });
             modelBuilder.Entity<AnnouncementReadStatus>(e => e.HasIndex(x => new { x.AnnouncementId, x.UserId }).IsUnique());
+
+            modelBuilder.Entity<BugReport>(e =>
+            {
+                e.Property(x => x.UserName).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Roles).HasMaxLength(300).IsRequired();
+                e.Property(x => x.Description).HasMaxLength(2000).IsRequired();
+                e.Property(x => x.PageUrl).HasMaxLength(500).IsRequired();
+                e.Property(x => x.AppVersion).HasMaxLength(100).IsRequired();
+                e.Property(x => x.UserAgent).HasMaxLength(500).IsRequired();
+                e.Property(x => x.Viewport).HasMaxLength(50).IsRequired();
+                e.Property(x => x.ScreenshotContentType).HasMaxLength(50);
+                e.Property(x => x.State).HasMaxLength(20).IsRequired();
+                e.Property(x => x.AdminNote).HasMaxLength(2000);
+                e.HasIndex(x => x.State);
+            });
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

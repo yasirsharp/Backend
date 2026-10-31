@@ -891,5 +891,68 @@ DELIMITER ;
 CALL MigrationsScript();
 DROP PROCEDURE MigrationsScript;
 
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261031082728_AddBugReport') THEN
+
+    CREATE TABLE `BugReports` (
+        `Id` int NOT NULL AUTO_INCREMENT,
+        `UserId` int NOT NULL,
+        `UserName` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `Roles` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `Description` varchar(2000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `PageUrl` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `AppVersion` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `UserAgent` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `Viewport` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `ClientLog` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+        `Screenshot` longblob NULL,
+        `ScreenshotContentType` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+        `State` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `AdminNote` varchar(2000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+        `ResolvedDate` datetime(6) NULL,
+        `CreatedDate` datetime(6) NOT NULL,
+        `UpdatedDate` datetime(6) NULL,
+        `Status` tinyint(1) NOT NULL,
+        CONSTRAINT `PK_BugReports` PRIMARY KEY (`Id`)
+    ) CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261031082728_AddBugReport') THEN
+
+    CREATE INDEX `IX_BugReports_State` ON `BugReports` (`State`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261031082728_AddBugReport') THEN
+
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+    VALUES ('20261031082728_AddBugReport', '9.0.0');
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
 COMMIT;
 

@@ -152,7 +152,19 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+    // Hata bildirimi: kullanıcı başına dakikada 5 (yanlışlıkla tekrar tekrar sallama/kısayol)
+    options.AddPolicy("bug-report", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
+builder.Services.AddSingleton<API.Services.BugReportMailer>();
 
 builder.Host
     .UseServiceProviderFactory(new AutofacServiceProviderFactory())
@@ -213,9 +225,10 @@ app.UseStaticFiles(spaFileOptions);
 
 app.UseCors("Frontend");
 
-app.UseRateLimiter();
-
 app.UseAuthentication();
+
+// Kimlik doğrulamadan sonra: hata bildirimi sınırı kullanıcıya göre uygulanır (giriş uçları yine IP'ye göre)
+app.UseRateLimiter();
 
 // Geçici parolalı kullanıcı parolasını değiştirene kadar diğer API uçlarını kullanamaz
 app.UseMiddleware<PasswordChangeRequiredMiddleware>();
