@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
@@ -8,6 +10,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DersController : ControllerBase
     {
         private readonly IDersService _dersService;
@@ -86,6 +89,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Add(Ders ders)
         {
             var result = _dersService.Add(ders);
@@ -95,6 +99,7 @@ namespace API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Update(Ders ders)
         {
             var result = _dersService.Update(ders);
@@ -104,6 +109,7 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
             var ders = _dersService.GetById(id);
@@ -117,6 +123,7 @@ namespace API.Controllers
         }
 
         [HttpPost("with-bolumler")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult AddWithBolumler(DersEkleDTO dersEkleDto)
         {
             var result = _dersService.AddDersWithBolumler(dersEkleDto);
@@ -135,6 +142,7 @@ namespace API.Controllers
         }
 
         [HttpPut("with-bolumler")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult UpdateWithBolumler(DersGuncelleDTO dersGuncelleDto)
         {
             var result = _dersService.UpdateDersWithBolumler(dersGuncelleDto);
@@ -156,6 +164,7 @@ namespace API.Controllers
         /// Ders-Bölüm eşleştirmesini siler. Eğer son eşleştirme ise dersi de siler.
         /// </summary>
         [HttpDelete("remove-bolum-mapping/{dersId}/{bolumId}")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult RemoveDersBolumMapping(int dersId, int bolumId)
         {
             var result = _dersService.RemoveDersBolumMapping(dersId, bolumId);

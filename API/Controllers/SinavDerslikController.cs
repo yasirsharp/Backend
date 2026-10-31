@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Entity.Concrete;
 
@@ -6,6 +8,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class SinavDerslikController : ControllerBase
     {
         private readonly ISinavDerslikService _sinavDerslikService;
@@ -61,6 +64,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Add(SinavDerslik sinavDerslik)
         {
             var result = _sinavDerslikService.Add(sinavDerslik);
@@ -70,6 +74,7 @@ namespace API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Update(SinavDerslik sinavDerslik)
         {
             var result = _sinavDerslikService.Update(sinavDerslik);
@@ -79,6 +84,7 @@ namespace API.Controllers
         }
 
         [HttpDelete]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(SinavDerslik sinavDerslik)
         {
             var result = _sinavDerslikService.Delete(sinavDerslik);

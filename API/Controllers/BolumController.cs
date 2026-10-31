@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
@@ -7,6 +9,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class BolumController : ControllerBase
     {
         private readonly IBolumService _bolumService;
@@ -93,6 +96,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Add(Bolum bolum)
         {
             var result = _bolumService.Add(bolum);
@@ -102,6 +106,7 @@ namespace API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Update(Bolum bolum)
         {
             var result = _bolumService.Update(bolum);
@@ -111,6 +116,7 @@ namespace API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Delete(int id)
         {
             var bolum = _bolumService.GetById(id);

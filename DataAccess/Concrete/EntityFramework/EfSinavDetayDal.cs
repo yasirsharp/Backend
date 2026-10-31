@@ -3,6 +3,7 @@ using Core.DataAccess.EntityFramework;
 using DataAccess.Abstract;
 using Entity.Concrete;
 using Entity.DTOs;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,54 +15,95 @@ namespace DataAccess.Concrete.EntityFramework
 {
     public class EfSinavDetayDal : EfEntityRepositoryBase<SinavDetay, DuzceUniversiteContext>, ISinavDetayDal
     {
-        public void AddWithTransaction(SinavKayitDTO sinavKayitDTO)
+        /// <summary>
+        /// Çakışma kontrolü ve kayıt aynı transaction ve aynı uygulama kilidi altında yapılır.
+        /// Çakışma varsa kayıt eklenmez ve çakışan sınav döner; yoksa sınav eklenir ve null döner.
+        /// </summary>
+        public SinavDetay? AddIfNoConflict(SinavKayitDTO sinavKayitDTO, out int createdId)
         {
-            using (DuzceUniversiteContext context = new DuzceUniversiteContext())
+            createdId = 0;
+            using DuzceUniversiteContext context = new DuzceUniversiteContext();
+            using var transaction = context.Database.BeginTransaction();
+
+            using var planlamaKilidi = AcquireSinavPlanlamaLock(context);
+
+            // Saat dönüşümleri
+            TimeOnly baslangicSaati = TimeOnly.Parse(sinavKayitDTO.SinavBaslangicSaati);
+            TimeOnly bitisSaati = TimeOnly.Parse(sinavKayitDTO.SinavBitisSaati);
+
+            var conflict = FindConflict(context, sinavKayitDTO.Derslikler, sinavKayitDTO.DersBolumAkademikPersonelId,
+                baslangicSaati, bitisSaati, sinavKayitDTO.SinavTarihi, excludeSinavId: null);
+            if (conflict != null)
+                return conflict; // transaction dispose edilince geri alınır
+
+            SinavDetay sinavDetay = new SinavDetay
             {
-                using (var transaction = context.Database.BeginTransaction())
+                DersBolumAkademikPersonelId = sinavKayitDTO.DersBolumAkademikPersonelId,
+                SinavTarihi = sinavKayitDTO.SinavTarihi,
+                SinavBaslangicSaati = baslangicSaati,
+                SinavBitisSaati = bitisSaati,
+                CreatedDate = DateTime.Now,
+                Status = true // ✅ Status alanını ekle
+            };
+            context.SinavDetay.Add(sinavDetay);
+            context.SaveChanges();
+
+            foreach (var derslik in sinavKayitDTO.Derslikler)
+            {
+                SinavDerslik sinavDerslik = new SinavDerslik
                 {
-                    try
-                    {
-                        // Saat d�n���mleri
-                        TimeOnly baslangicSaati = TimeOnly.Parse(sinavKayitDTO.SinavBaslangicSaati);
-                        TimeOnly bitisSaati = TimeOnly.Parse(sinavKayitDTO.SinavBitisSaati);
-
-                        SinavDetay sinavDetay = new SinavDetay
-                        {
-                            DersBolumAkademikPersonelId = sinavKayitDTO.DersBolumAkademikPersonelId,
-                            SinavTarihi = sinavKayitDTO.SinavTarihi,
-                            SinavBaslangicSaati = baslangicSaati,
-                            SinavBitisSaati = bitisSaati,
-                            CreatedDate = DateTime.Now,
-                            Status = true // ✅ Status alanını ekle
-                        };
-                        context.SinavDetay.Add(sinavDetay);
-                        context.SaveChanges();
-
-                        foreach (var derslik in sinavKayitDTO.Derslikler)
-                        {
-                            SinavDerslik sinavDerslik = new SinavDerslik
-                            {
-                                SinavDetayId = sinavDetay.Id,
-                                DerslikId = derslik.DerslikId,
-                                GozetmenId = derslik.GozetmenId ?? 0,
-                                CreatedDate = DateTime.Now,
-                                UpdatedDate = DateTime.Now,
-                                Status = true
-                            };
-                            context.SinavDerslik.Add(sinavDerslik);
-                        }
-
-                        context.SaveChanges();
-                        transaction.Commit();
-                    }
-                    catch (Exception err)
-                    {
-                        transaction.Rollback();
-                        throw new Exception(err.Message);
-                    }
-                }
+                    SinavDetayId = sinavDetay.Id,
+                    DerslikId = derslik.DerslikId,
+                    GozetmenId = derslik.GozetmenId,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now,
+                    Status = true
+                };
+                context.SinavDerslik.Add(sinavDerslik);
             }
+
+            context.SaveChanges();
+            transaction.Commit();
+            createdId = sinavDetay.Id;
+            return null;
+        }
+
+        public SinavBildirimBilgisiDTO? GetBildirimBilgisi(int sinavDetayId)
+        {
+            using var context = new DuzceUniversiteContext();
+            var sinav = (from s in context.SinavDetay
+                         join dba in context.DersBolumAkademikPersonel on s.DersBolumAkademikPersonelId equals dba.Id
+                         join d in context.Ders on dba.DersId equals d.Id
+                         join ap in context.AkademikPersonel on dba.AkademikPersonelId equals ap.Id
+                         where s.Id == sinavDetayId
+                         select new { s.Id, d.Kod, d.Ad, s.SinavTarihi, s.SinavBaslangicSaati, s.SinavBitisSaati, ap.UserId })
+                        .FirstOrDefault();
+            if (sinav == null)
+                return null;
+
+            var derslikler = (from sd in context.SinavDerslik
+                              join dl in context.Derslik on sd.DerslikId equals dl.Id
+                              join ap in context.AkademikPersonel on sd.GozetmenId equals (int?)ap.Id into gozetmen
+                              from g in gozetmen.DefaultIfEmpty()
+                              where sd.SinavDetayId == sinavDetayId
+                              select new { dl.Ad, GozetmenUserId = g == null ? (int?)null : g.UserId })
+                             .ToList();
+
+            var info = new SinavBildirimBilgisiDTO
+            {
+                SinavId = sinav.Id,
+                DersKod = sinav.Kod,
+                DersAd = sinav.Ad,
+                SinavTarihi = sinav.SinavTarihi,
+                BaslangicSaati = sinav.SinavBaslangicSaati,
+                BitisSaati = sinav.SinavBitisSaati,
+                Derslikler = derslikler.Select(x => x.Ad).ToList()
+            };
+            info.Gorevliler.Add(new SinavGorevliDTO { UserId = sinav.UserId, Gorev = "ogretim" });
+            info.Gorevliler.AddRange(derslikler
+                .Where(x => x.GozetmenUserId.HasValue)
+                .Select(x => new SinavGorevliDTO { UserId = x.GozetmenUserId!.Value, Gorev = "gozetmen", Derslik = x.Ad }));
+            return info;
         }
 
         public void DeleteWithTransaction(SinavDetay sinavDetay)
@@ -83,38 +125,109 @@ namespace DataAccess.Concrete.EntityFramework
                     catch (Exception err)
                     {
                         transaction.Rollback();
-                        throw err;
+                        throw;
                     }
                 }
             }
         }
-        public SinavDetay ExistSinav(List<int> derslikIdleri, List<int> gozetmenIdleri, int akademikPersonelId, TimeOnly SinavBaslangicSaati, TimeOnly SinavBitisSaati, DateTime sinavTarihi)
+        /// <summary>
+        /// Sınav yazma işlemlerini (ekleme/güncelleme) veritabanı seviyesinde sıraya sokar.
+        /// Önceden çakışma kontrolü ile kayıt ayrı context'lerde yapıldığı için aynı anda gelen iki
+        /// istek aynı derslik/gözetmen için çakışan sınav oluşturabiliyordu.
+        /// SQL Server: sp_getapplock, transaction bitince (commit/rollback) otomatik bırakılır.
+        /// MySQL: GET_LOCK oturuma bağlıdır; dönen nesne dispose edilince RELEASE_LOCK ile bırakılır.
+        /// Transaction'dan sonra tanımlanmalıdır (önce kilit bırakılır, sonra transaction kapanır).
+        /// </summary>
+        private static IDisposable AcquireSinavPlanlamaLock(DuzceUniversiteContext context)
         {
-            using (DuzceUniversiteContext context = new DuzceUniversiteContext())
-            {
-                var result = from s in context.SinavDetay
-                             join sd in context.SinavDerslik on s.Id equals sd.SinavDetayId into sd_join
-                             from sd in sd_join.DefaultIfEmpty()
-                             join dba in context.DersBolumAkademikPersonel on s.DersBolumAkademikPersonelId equals dba.Id into dba_join
-                             from dba in dba_join.DefaultIfEmpty()
-                             where s.SinavTarihi.Date == sinavTarihi.Date &&
-                                   (
-                                       // Derslik �ak��ma kontrol�
-                                       (derslikIdleri.Contains(sd.DerslikId)) ||
-                                       // G�zetmen �ak��ma kontrol�
-                                       (gozetmenIdleri.Contains(sd.GozetmenId)) ||
-                                       // Akademik personel �ak��ma kontrol�
-                                       (akademikPersonelId == dba.AkademikPersonelId)
-                                   ) &&
-                                   (
-                                       (s.SinavBaslangicSaati <= SinavBaslangicSaati && s.SinavBitisSaati > SinavBaslangicSaati) ||
-                                       (s.SinavBaslangicSaati < SinavBitisSaati && s.SinavBitisSaati >= SinavBitisSaati) ||
-                                       (s.SinavBaslangicSaati >= SinavBaslangicSaati && s.SinavBitisSaati <= SinavBitisSaati)
-                                   )
-                             select s;
+            const string hata = "Sınav planlama kilidi alınamadı, lütfen tekrar deneyin.";
 
-                return result.FirstOrDefault();
+            if (DuzceUniversiteContext.Provider == DatabaseProvider.MySql)
+            {
+                var sonuc = context.Database
+                    .SqlQueryRaw<long?>("SELECT GET_LOCK('SinavPlanlama', 15) AS Value")
+                    .AsEnumerable()
+                    .FirstOrDefault();
+                if (sonuc != 1)
+                    throw new InvalidOperationException(hata);
+                return new KilitBirakici(() => context.Database.ExecuteSqlRaw("DO RELEASE_LOCK('SinavPlanlama')"));
             }
+
+            context.Database.ExecuteSqlRaw(
+                "DECLARE @result int; " +
+                "EXEC @result = sp_getapplock @Resource = N'SinavPlanlama', @LockMode = N'Exclusive', " +
+                "@LockOwner = N'Transaction', @LockTimeout = 15000; " +
+                "IF @result < 0 THROW 50001, N'" + hata + "', 1;");
+            return new KilitBirakici(null);
+        }
+
+        private sealed class KilitBirakici : IDisposable
+        {
+            private Action? _birak;
+            public KilitBirakici(Action? birak) => _birak = birak;
+
+            public void Dispose()
+            {
+                var birak = _birak;
+                _birak = null;
+                birak?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// Aynı gün ve kesişen saat aralığında; aynı derslikte, aynı gözetmenle veya dersin akademik
+        /// personelinin başka bir dersiyle çakışan ilk sınavı döner.
+        /// </summary>
+        /// <remarks>
+        /// Önceki ExistSinav metoduna DersBolumAkademikPersonel (DBAP) ID'si gönderilip
+        /// AkademikPersonelId ile karşılaştırılıyordu; personel çakışması bu yüzden doğru tespit
+        /// edilmiyordu. Artık DBAP kaydından gerçek AkademikPersonelId okunur. Güncellemede
+        /// sınavın kendisi sorgudan hariç tutulur (önceden ilk eşleşme kendisi olursa diğer
+        /// çakışmalar gözden kaçıyordu).
+        /// </remarks>
+        private static SinavDetay? FindConflict(
+            DuzceUniversiteContext context,
+            List<DerslikGozetmenDTO> derslikler,
+            int dersBolumAkademikPersonelId,
+            TimeOnly sinavBaslangicSaati,
+            TimeOnly sinavBitisSaati,
+            DateTime sinavTarihi,
+            int? excludeSinavId)
+        {
+            var derslikIdleri = derslikler.Select(d => d.DerslikId).ToList();
+            var gozetmenIdleri = derslikler.Where(d => d.GozetmenId.HasValue).Select(d => d.GozetmenId!.Value).ToList();
+            var gun = sinavTarihi.Date;
+
+            int? akademikPersonelId = context.DersBolumAkademikPersonel
+                .Where(x => x.Id == dersBolumAkademikPersonelId)
+                .Select(x => (int?)x.AkademikPersonelId)
+                .FirstOrDefault();
+
+            var result = from s in context.SinavDetay
+                         join sd in context.SinavDerslik on s.Id equals sd.SinavDetayId into sd_join
+                         from sd in sd_join.DefaultIfEmpty()
+                         join dba in context.DersBolumAkademikPersonel on s.DersBolumAkademikPersonelId equals dba.Id into dba_join
+                         from dba in dba_join.DefaultIfEmpty()
+                         where s.SinavTarihi.Date == gun &&
+                               (excludeSinavId == null || s.Id != excludeSinavId) &&
+                               (
+                                   // Derslik çakışma kontrolü
+                                   derslikIdleri.Contains(sd.DerslikId) ||
+                                   // Gözetmen çakışma kontrolü
+                                   (sd.GozetmenId != null && gozetmenIdleri.Contains(sd.GozetmenId.Value)) ||
+                                   // Akademik personel çakışma kontrolü
+                                   (akademikPersonelId != null && dba.AkademikPersonelId == akademikPersonelId) ||
+                                   // Gözetmen o saatte başka bir sınavın dersini veriyor
+                                   gozetmenIdleri.Contains(dba.AkademikPersonelId) ||
+                                   // Dersin öğretim elemanı o saatte başka bir sınavda gözetmen
+                                   (akademikPersonelId != null && sd.GozetmenId == akademikPersonelId)
+                               ) &&
+                               // Saat aralıkları kesişiyor mu?
+                               s.SinavBaslangicSaati < sinavBitisSaati &&
+                               s.SinavBitisSaati > sinavBaslangicSaati
+                         select s;
+
+            return result.FirstOrDefault();
         }
 
         public List<SinavDetayDTO> GetByDerslikler(int[] derslikIds)
@@ -142,7 +255,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  Derslikler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
@@ -154,7 +267,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -189,7 +302,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  Derslikler = context.SinavDerslik
                              .Where(x => x.SinavDetayId == s.Id)
@@ -201,7 +314,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                              .Where(x => x.SinavDetayId == s.Id)
                              .Join(context.AkademikPersonel,
-                                 sd => sd.GozetmenId,
+                                 sd => sd.GozetmenId ?? 0,
                                  ap => ap.Id,
                                  (sd, ap) => ap)
                              .ToList()
@@ -237,7 +350,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  Derslikler = context.SinavDerslik
                              .Where(x => x.SinavDetayId == s.Id)
@@ -249,7 +362,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                              .Where(x => x.SinavDetayId == s.Id)
                              .Join(context.AkademikPersonel,
-                                 sd => sd.GozetmenId,
+                                 sd => sd.GozetmenId ?? 0,
                                  ap => ap.Id,
                                  (sd, ap) => ap)
                              .ToList()
@@ -283,7 +396,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBaslangicSaati = s.SinavBaslangicSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  Derslikler = context.SinavDerslik
@@ -296,7 +409,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -324,7 +437,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  BolumId = b.Id,
                                  BolumAd = b.Ad,
                                  DerslikId = sd.DerslikId,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  AkademikPersonelAd = ap.Ad,
                                  Unvan = ap.Unvan,
                                  SinavTarihi = s.SinavTarihi,
@@ -341,7 +454,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -375,7 +488,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  Derslikler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
@@ -387,7 +500,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -396,52 +509,55 @@ namespace DataAccess.Concrete.EntityFramework
             }
         }
 
-        public void UpdateWithTransaction(SinavGuncelleDTO sinavGuncelleDTO)
+        /// <summary>
+        /// Güncellemeyi, sınavın kendisi hariç tutularak yapılan çakışma kontrolüyle birlikte
+        /// aynı transaction ve uygulama kilidi altında yapar. Çakışma varsa güncelleme yapılmaz ve
+        /// çakışan sınav döner; yoksa null döner.
+        /// </summary>
+        public SinavDetay? UpdateIfNoConflict(SinavGuncelleDTO sinavGuncelleDTO)
         {
-            using (DuzceUniversiteContext context = new DuzceUniversiteContext())
+            using DuzceUniversiteContext context = new DuzceUniversiteContext();
+            using var transaction = context.Database.BeginTransaction();
+
+            using var planlamaKilidi = AcquireSinavPlanlamaLock(context);
+
+            var conflict = FindConflict(context, sinavGuncelleDTO.Derslikler, sinavGuncelleDTO.DersBolumAkademikPersonelId,
+                sinavGuncelleDTO.SinavBaslangicSaati, sinavGuncelleDTO.SinavBitisSaati, sinavGuncelleDTO.SinavTarihi,
+                excludeSinavId: sinavGuncelleDTO.Id);
+            if (conflict != null)
+                return conflict;
+
+            var sinavDetay = context.SinavDetay.Find(sinavGuncelleDTO.Id);
+            if (sinavDetay == null)
+                return null;
+
+            sinavDetay.DersBolumAkademikPersonelId = sinavGuncelleDTO.DersBolumAkademikPersonelId;
+            sinavDetay.SinavTarihi = sinavGuncelleDTO.SinavTarihi;
+            sinavDetay.SinavBaslangicSaati = sinavGuncelleDTO.SinavBaslangicSaati;
+            sinavDetay.SinavBitisSaati = sinavGuncelleDTO.SinavBitisSaati;
+            sinavDetay.UpdatedDate = DateTime.Now;
+            sinavDetay.Status = true; // ✅ Status alanını da güncelle
+
+            var existingSinavDerslikler = context.SinavDerslik.Where(x => x.SinavDetayId == sinavGuncelleDTO.Id);
+            context.SinavDerslik.RemoveRange(existingSinavDerslikler);
+
+            foreach (var derslik in sinavGuncelleDTO.Derslikler)
             {
-                using (var transaction = context.Database.BeginTransaction())
+                SinavDerslik sinavDerslik = new SinavDerslik
                 {
-                    try
-                    {
-                        var sinavDetay = context.SinavDetay.Find(sinavGuncelleDTO.Id);
-                        if (sinavDetay != null)
-                        {
-                            sinavDetay.DersBolumAkademikPersonelId = sinavGuncelleDTO.DersBolumAkademikPersonelId;
-                            sinavDetay.SinavTarihi = sinavGuncelleDTO.SinavTarihi;
-                            sinavDetay.SinavBaslangicSaati = sinavGuncelleDTO.SinavBaslangicSaati;
-                            sinavDetay.SinavBitisSaati = sinavGuncelleDTO.SinavBitisSaati;
-                            sinavDetay.UpdatedDate = DateTime.Now;
-                            sinavDetay.Status = true; // ✅ Status alanını da güncelle
-
-                            var existingSinavDerslikler = context.SinavDerslik.Where(x => x.SinavDetayId == sinavGuncelleDTO.Id);
-                            context.SinavDerslik.RemoveRange(existingSinavDerslikler);
-
-                            foreach (var derslik in sinavGuncelleDTO.Derslikler)
-                            {
-                                SinavDerslik sinavDerslik = new SinavDerslik
-                                {
-                                    SinavDetayId = sinavDetay.Id,
-                                    DerslikId = derslik.DerslikId,
-                                    GozetmenId = derslik.GozetmenId ?? 0,
-                                    CreatedDate = DateTime.Now,
-                                    UpdatedDate = DateTime.Now,
-                                    Status = true
-                                };
-                                context.SinavDerslik.Add(sinavDerslik);
-                            }
-
-                            context.SaveChanges();
-                            transaction.Commit();
-                        }
-                    }
-                    catch (Exception err)
-                    {
-                        transaction.Rollback();
-                        throw err;
-                    }
-                }
+                    SinavDetayId = sinavDetay.Id,
+                    DerslikId = derslik.DerslikId,
+                    GozetmenId = derslik.GozetmenId,
+                    CreatedDate = DateTime.Now,
+                    UpdatedDate = DateTime.Now,
+                    Status = true
+                };
+                context.SinavDerslik.Add(sinavDerslik);
             }
+
+            context.SaveChanges();
+            transaction.Commit();
+            return null;
         }
 
         public List<SinavDetayDTO> GetByDerslikId(int derslikId)
@@ -468,7 +584,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBaslangicSaati = s.SinavBaslangicSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  Derslikler = context.SinavDerslik
@@ -481,7 +597,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -515,7 +631,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBaslangicSaati = s.SinavBaslangicSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  Derslikler = context.SinavDerslik
@@ -528,7 +644,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -562,7 +678,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  SinavBaslangicSaati = s.SinavBaslangicSaati,
                                  DerslikId = sd.DerslikId,
                                  DerslikKontenjan = dlik.Kapasite,
-                                 GozetmenId = sd.GozetmenId,
+                                 GozetmenId = sd.GozetmenId ?? 0,
                                  DersBolumAkademikPersonelId = dba.Id,
                                  SinavBitisSaati = s.SinavBitisSaati,
                                  Derslikler = context.SinavDerslik
@@ -575,7 +691,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                      .Where(x => x.SinavDetayId == s.Id)
                                      .Join(context.AkademikPersonel,
-                                         sd => sd.GozetmenId,
+                                         sd => sd.GozetmenId ?? 0,
                                          ap => ap.Id,
                                          (sd, ap) => ap)
                                      .ToList()
@@ -617,7 +733,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                     .Where(x => x.SinavDetayId == s.Id)
                                     .Join(context.AkademikPersonel,
-                                        sd => sd.GozetmenId,
+                                        sd => sd.GozetmenId ?? 0,
                                         ap => ap.Id,
                                         (sd, ap) => ap)
                                     .ToList()
@@ -660,7 +776,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                     .Where(x => x.SinavDetayId == s.Id)
                                     .Join(context.AkademikPersonel,
-                                        sd => sd.GozetmenId,
+                                        sd => sd.GozetmenId ?? 0,
                                         ap => ap.Id,
                                         (sd, ap) => ap)
                                     .ToList()
@@ -704,7 +820,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                     .Where(x => x.SinavDetayId == s.Id)
                                     .Join(context.AkademikPersonel,
-                                        sd => sd.GozetmenId,
+                                        sd => sd.GozetmenId ?? 0,
                                         ap => ap.Id,
                                         (sd, ap) => ap)
                                     .ToList()
@@ -748,7 +864,7 @@ namespace DataAccess.Concrete.EntityFramework
                                  Gozetmenler = context.SinavDerslik
                                     .Where(x => x.SinavDetayId == s.Id)
                                     .Join(context.AkademikPersonel,
-                                        sd => sd.GozetmenId,
+                                        sd => sd.GozetmenId ?? 0,
                                         ap => ap.Id,
                                         (sd, ap) => ap)
                                     .ToList()

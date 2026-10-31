@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
+using Business.Constants;
+using Core.Extensions;
 using Entity.DTOs;
 
 namespace API.Controllers
@@ -27,6 +29,9 @@ namespace API.Controllers
         [HttpPost("ask")]
         public IActionResult AskQuestion([FromBody] AskQuestionDto dto)
         {
+            // Etkileşim her zaman token'daki kullanıcı adına kaydedilir
+            dto.UserId = User.GetUserId() ?? 0;
+
             var result = _assistantService.AskQuestion(dto);
             if (result.Success)
                 return Ok(result);
@@ -66,6 +71,8 @@ namespace API.Controllers
         [HttpPost("log-interaction")]
         public IActionResult LogInteraction([FromBody] LogInteractionDto dto)
         {
+            dto.UserId = User.GetUserId() ?? 0;
+
             var result = _assistantService.LogInteraction(dto);
             if (result.Success)
                 return Ok(result);
@@ -79,6 +86,11 @@ namespace API.Controllers
         [HttpGet("history/{userId}")]
         public IActionResult GetHistory(int userId, [FromQuery] int limit = 10)
         {
+            if (User.GetUserId() != userId && !User.IsInAnyRole(Roles.Yonetici))
+                return Forbid();
+
+            limit = Math.Clamp(limit, 1, 100);
+
             var result = _assistantService.GetUserHistory(userId, limit);
             if (result.Success)
                 return Ok(result);
@@ -90,7 +102,7 @@ namespace API.Controllers
         /// GET /api/Assistant/analytics
         /// </summary>
         [HttpGet("analytics")]
-        [Authorize(Roles = "Admin,super.admin")] // Sadece admin erişebilir
+        [Authorize(Roles = Roles.Yonetici)] // Sadece admin erişebilir
         public IActionResult GetAnalytics()
         {
             var result = _assistantService.GetAnalytics();
@@ -117,9 +129,12 @@ namespace API.Controllers
         /// GET /api/Assistant/error-reports?skip=0&take=50
         /// </summary>
         [HttpGet("error-reports")]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetErrorReports([FromQuery] int skip = 0, [FromQuery] int take = 50)
         {
+            skip = Math.Max(skip, 0);
+            take = Math.Clamp(take, 1, 200);
+
             var result = _assistantService.GetErrorReports(skip, take);
             if (result.Success)
                 return Ok(result);

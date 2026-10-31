@@ -1,6 +1,7 @@
-﻿using Business.Abstract;
+using Business.Abstract;
 using Business.Constants;
 using Core.Entities.Concrete;
+using Entity.DTOs;
 using Core.Utilities.Results;
 using Core.Utilites.Results.Pagination;
 using DataAccess.Abstract;
@@ -31,7 +32,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorResult("Kullanıcı eklenemedi. " + Messages.SomethingWrong + "\n" + err.Message);
+                return new ErrorResult(ExceptionLogger.Log(err, "Kullanıcı eklenemedi."));
             }
         }
 
@@ -49,7 +50,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorResult(err.Message);
+                return new ErrorResult(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -57,11 +58,12 @@ namespace Business.Concrete
         {
             try
             {
-                return new SuccessDataResult<List<User>>(_userDal.GetAll(), $"{_userDal.GetAll().Count} tane sonuç bulundu.");
+                var users = _userDal.GetAll();
+                return new SuccessDataResult<List<User>>(users, $"{users.Count} tane sonuç bulundu.");
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<User>>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<List<User>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -74,7 +76,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<int>>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<List<int>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -88,7 +90,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<User>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<User>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -103,7 +105,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<User>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<User>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -119,7 +121,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<User>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<User>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -136,6 +138,11 @@ namespace Business.Concrete
             {
                 return new ErrorDataResult<List<OperationClaim>>(Messages.SomethingWrong);
             }
+        }
+
+        public IDataResult<List<UserWithRolesDto>> GetAllWithRoles()
+        {
+            return new SuccessDataResult<List<UserWithRolesDto>>(_userDal.GetAllWithRoles());
         }
 
         public IResult Update(User user)
@@ -164,7 +171,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<PagedResult<User>>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<PagedResult<User>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
     }

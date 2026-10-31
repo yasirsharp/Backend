@@ -1,4 +1,4 @@
-﻿using Business.Abstract;
+using Business.Abstract;
 using Business.Constants;
 using Business.ValidationRules.FluentValidation;
 using Core.Aspects.Autofac.Validation;
@@ -11,6 +11,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Core.Utilites.Results.Pagination;
+using Business.Helpers;
+using Entity.DTOs;
 
 namespace Business.Concrete
 {
@@ -19,58 +21,120 @@ namespace Business.Concrete
         private readonly IAkademikPersonelDal _akademikPersonelDal;
         private readonly IUserService _userService;
         private readonly IDBAPDal _dBAPDal;
+        private readonly IUserDal _userDal;
+        private readonly IBolumAkademikPersonellerDal _bolumAkademikPersonellerDal;
 
         public AkademikPersonelManager(
             IAkademikPersonelDal akademikPersonelDal,
             IUserService userService,
-            IDBAPDal dBAPDal)
+            IDBAPDal dBAPDal,
+            IUserDal userDal,
+            IBolumAkademikPersonellerDal bolumAkademikPersonellerDal)
         {
             _akademikPersonelDal = akademikPersonelDal;
             _userService = userService;
             _dBAPDal = dBAPDal;
+            _userDal = userDal;
+            _bolumAkademikPersonellerDal = bolumAkademikPersonellerDal;
         }
 
-        [ValidationAspect(typeof(AkademikPersonelValidator))]
-        public async Task<IResult> Add(AkademikPersonel akademikPersonel)
+        public const int MaxBulkRows = 1000;
+
+        public async Task<IDataResult<CreatedAccountDto>> CreateAsync(AkademikPersonelCreateDto dto)
         {
-            var parts = akademikPersonel.Ad.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var firstName = parts.Length > 1 ? string.Join(" ", parts.Take(parts.Length - 1)) : parts[0];
-            var lastName = parts.Length > 1 ? parts.Last() : parts[0];
+            var validation = new AkademikPersonelCreateDtoValidator().Validate(dto);
+            if (!validation.IsValid)
+                return new ErrorDataResult<CreatedAccountDto>(validation.Errors[0].ErrorMessage);
 
-            var initials = string.Join("", parts.Select(p => p[0]));
+            var fullName = string.Join(" ", dto.Ad.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            var (firstName, lastName) = AccountFactory.SplitFullName(fullName);
 
-            var number = Random.Shared.Next(1000, 10000);
+            var userName = AccountFactory.GenerateUserName(fullName, dto.Email,
+                candidate => _userDal.Get(u => u.UserName == candidate) != null);
+            var email = string.IsNullOrWhiteSpace(dto.Email)
+                ? $"{userName}@duzce.edu.tr"
+                : dto.Email.Trim().ToLowerInvariant();
 
-            var userName = $"{initials}{number}";
+            if (_userDal.Get(u => u.Email == email) != null)
+                return new ErrorDataResult<CreatedAccountDto>($"'{email}' e-posta adresi zaten kullanılıyor.");
 
-
-            HashingHelper.CreatePasswordHash(userName, out var hash, out var salt);
-
-            var user = new Core.Entities.Concrete.User
+            // Parola kriptografik olarak rastgele üretilir, yöneticiye bir kez gösterilir ve ilk girişte değiştirilir.
+            var user = AccountFactory.NewUser(firstName, lastName, email, userName, out var temporaryPassword);
+            var akademikPersonel = new AkademikPersonel
             {
-                FirstName = firstName,
-                LastName = lastName,
-                UserName = userName,
-                Email = $"{userName}@duzce.edu.tr",
-                PasswordHash = hash,
-                PasswordSalt = salt,
-                Status = true,
-                CreatedDate = DateTime.Now
+                Ad = fullName,
+                Unvan = dto.Unvan.Trim(),
+                CreatedDate = DateTime.Now,
+                Status = true
             };
 
-            var claim = new Core.Entities.Concrete.UserOperationClaim
+            try
             {
-                OperationClaimId = 2,
-                Status = true,
-                CreatedDate = DateTime.Now
-            };
+                await _akademikPersonelDal.AddWithUserAsync(user, akademikPersonel, Roles.AkademikPersonel);
+            }
+            catch (Exception ex)
+            {
+                return new ErrorDataResult<CreatedAccountDto>(ExceptionLogger.Log(ex,
+                    "Akademik personel kaydedilemedi (kullanıcı adı veya e-posta başka bir kayıtta kullanılıyor olabilir)."));
+            }
 
-            await _akademikPersonelDal.AddWithUserAsync(user, akademikPersonel, claim);
-            return new SuccessResult(Messages.AkademikPersonelAdded);
+            // Mesaj biçimi frontend'in eski sürümüyle uyumlu tutulur; bilgiler Data içinde de döner.
+            return new SuccessDataResult<CreatedAccountDto>(
+                AccountFactory.ToCreatedAccount(user, temporaryPassword),
+                $"{Messages.AkademikPersonelAdded} Kullanıcı adı: {userName}, geçici parola: {temporaryPassword}");
+        }
+
+        public async Task<IDataResult<BulkResultDto>> BulkCreateAsync(List<AkademikPersonelCreateDto> rows)
+        {
+            if (rows == null || rows.Count == 0)
+                return new ErrorDataResult<BulkResultDto>("Kaydedilecek satır yok.");
+            if (rows.Count > MaxBulkRows)
+                return new ErrorDataResult<BulkResultDto>($"Tek seferde en fazla {MaxBulkRows} satır aktarılabilir.");
+
+            var result = new BulkResultDto();
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var created = await CreateAsync(rows[i]);
+                result.Rows.Add(new BulkRowResultDto
+                {
+                    Row = i + 1,
+                    Success = created.Success,
+                    // Toplu sonuçta parola mesajda tekrar edilmez, sadece Account içinde döner
+                    Message = created.Success ? Messages.AkademikPersonelAdded : created.Message,
+                    Account = created.Data
+                });
+            }
+
+            result.SuccessCount = result.Rows.Count(r => r.Success);
+            result.ErrorCount = result.Rows.Count - result.SuccessCount;
+            return new SuccessDataResult<BulkResultDto>(result,
+                $"{result.SuccessCount} personel eklendi, {result.ErrorCount} satır hatalı.");
+        }
+
+        public IDataResult<List<AkademikPersonel>> GetByBolumId(int bolumId)
+        {
+            var personelIds = _dBAPDal.GetAll(x => x.BolumId == bolumId).Select(x => x.AkademikPersonelId)
+                .Concat(_bolumAkademikPersonellerDal.GetAll(x => x.BolumId == bolumId).Select(x => x.AkademikPersonelId))
+                .Distinct()
+                .ToList();
+
+            var list = _akademikPersonelDal.GetAll(x => x.Status && personelIds.Contains(x.Id));
+            return new SuccessDataResult<List<AkademikPersonel>>(list, $"{list.Count} akademik personel bulundu.");
         }
 
         public async Task<IResult> Update(AkademikPersonel akademikPersonel)
         {
+            if (string.IsNullOrWhiteSpace(akademikPersonel.Ad) || string.IsNullOrWhiteSpace(akademikPersonel.Unvan))
+                return new ErrorResult("Ad ve unvan boş olamaz.");
+
+            // Kullanıcı bağlantısı istemciden alınmaz: aksi halde başka bir kullanıcının adı değiştirilebilirdi
+            var existing = _akademikPersonelDal.Get(x => x.Id == akademikPersonel.Id);
+            if (existing == null)
+                return new ErrorResult(Messages.AkademikPersonelNotFound);
+            akademikPersonel.UserId = existing.UserId;
+            akademikPersonel.CreatedDate = existing.CreatedDate;
+            akademikPersonel.Status = existing.Status;
+
             var userResult = _userService.GetById(akademikPersonel.UserId);
             if (!userResult.Success)
                 return new ErrorResult(userResult.Message);
@@ -118,17 +182,18 @@ namespace Business.Concrete
 
         public IDataResult<List<AkademikPersonel>> GetList(Expression<Func<AkademikPersonel, bool>> filter = null)
         {
-            var list = _akademikPersonelDal.GetAll(filter);
+            // Silinen (pasifleştirilen) personel listelerde görünmez
+            var list = _akademikPersonelDal.GetAll(filter ?? (x => x.Status));
             return new SuccessDataResult<List<AkademikPersonel>>(list);
         }
 
         public IDataResult<PagedResult<AkademikPersonel>> GetPagedList(PaginationParams paginationParams)
         {
             var search = paginationParams.SearchTerm?.ToLower();
-            Expression<Func<AkademikPersonel, bool>> filter = null;
+            Expression<Func<AkademikPersonel, bool>> filter = x => x.Status;
 
             if (!string.IsNullOrWhiteSpace(search))
-                filter = x => x.Ad.ToLower().Contains(search);
+                filter = x => x.Status && x.Ad.ToLower().Contains(search);
 
             var result = _akademikPersonelDal.GetPaged(paginationParams, filter);
             return new SuccessDataResult<PagedResult<AkademikPersonel>>(result);
