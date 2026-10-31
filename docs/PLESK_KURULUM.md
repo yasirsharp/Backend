@@ -134,6 +134,24 @@ Ayrıca e-postayla da gelmesini isterseniz:
 Gerçek bildirimlerde gönderim hatası `logs\api-*.log` dosyasına "e-postası gönderilemedi: <neden>" olarak yazılır;
 bildirim her durumda kaydedilir.
 
+## Sunum için demo verisi (isteğe bağlı)
+
+Sistemi tanıtmak için gerçekçi bir veri seti (4 bölüm, 12 derslik, 29 ders, 24 personel, 160 öğrenci, 3 haftalık
+43 sınav, gözetmenler, müsaitlikler, duyurular ve her rol için hesaplar) açılışta kurulabilir:
+
+```xml
+<environmentVariable name="Seed__DemoData" value="true" />
+<environmentVariable name="Seed__DemoPassword" value="SUNUM_PAROLASI" />
+```
+
+- Kaydedince site yeniden başlar ve veri birkaç saniyede kurulur.
+- Bütün demo hesapları `Seed__DemoPassword` ile girer.
+- Mevcut kayıtlara dokunulmaz.
+- Veri bir kez kurulur (`demo.yonetici` hesabı varsa atlanır); sonra `Seed__DemoData` satırını silin.
+
+Hesaplar ve tanıtım akışı arayüz reposundaki `docs/SUNUM_REHBERI.md` dosyasında anlatılır. Canlı içe aktarma
+gösterimi için Excel dosyaları `docs/sunum-excel/` klasöründedir.
+
 ## Sorun giderme
 
 | Belirti | Çözüm |

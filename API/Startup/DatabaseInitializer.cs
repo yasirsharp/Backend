@@ -8,6 +8,7 @@ namespace API.Startup
     /// <summary>
     /// Açılışta veritabanını hazırlar:
     /// - Database:MigrateOnStartup=true ise bekleyen migration'ları uygular (varsayılan kapalı; şema db/schema.sql ile kurulur).
+    /// - Seed:DemoData=true ise sunum için örnek veriyi bir kez kurar (bkz. DemoDataSeeder).
     /// - Seed:AdminEmail ve Seed:AdminPassword tanımlıysa ve hiç super.admin yoksa ilk yöneticiyi oluşturur.
     ///   Bu hesap ilk girişte parolasını değiştirmek zorundadır. Parola loglanmaz.
     /// </summary>
@@ -26,6 +27,7 @@ namespace API.Startup
             }
 
             await SeedAdminAsync(context, configuration, logger);
+            await DemoDataSeeder.SeedAsync(configuration, logger);
         }
 
         private static async Task SeedAdminAsync(DuzceUniversiteContext context, IConfiguration configuration, ILogger logger)
