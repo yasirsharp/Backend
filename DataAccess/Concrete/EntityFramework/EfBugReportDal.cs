@@ -18,7 +18,7 @@ namespace DataAccess.Concrete.EntityFramework
             if (id != null)
                 query = query.Where(x => x.Id == id);
             return query
-                .OrderByDescending(x => x.Id)
+                .OrderByDescending(x => x.LastSeenDate ?? x.CreatedDate)
                 .Select(x => new BugReportSummaryDto
                 {
                     Id = x.Id,
@@ -35,7 +35,10 @@ namespace DataAccess.Concrete.EntityFramework
                     State = x.State,
                     AdminNote = x.AdminNote,
                     CreatedDate = x.CreatedDate,
-                    ResolvedDate = x.ResolvedDate
+                    ResolvedDate = x.ResolvedDate,
+                    Source = x.Source,
+                    OccurrenceCount = x.OccurrenceCount,
+                    LastSeenDate = x.LastSeenDate
                 })
                 .ToList();
         }

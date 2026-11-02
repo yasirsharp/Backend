@@ -8,6 +8,11 @@ namespace Business.Abstract
     public interface IBugReportService
     {
         IDataResult<int> Add(BugReport report);
+        /// <summary>
+        /// Kendiliğinden yakalanan hata: aynı parmak izli açık kayıt varsa sayacı artırır, yoksa yeni kayıt açar.
+        /// IsNew yalnızca yeni kayıtta true (e-posta bir kez gitsin).
+        /// </summary>
+        IDataResult<(int Id, bool IsNew)> RecordAutomatic(BugReport report);
         IDataResult<List<BugReportSummaryDto>> GetList(string? state);
         IDataResult<BugReportSummaryDto> GetById(int id);
         (byte[] Data, string ContentType)? GetScreenshot(int id);

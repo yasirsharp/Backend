@@ -20,6 +20,20 @@ namespace Entity.DTOs
         public string? AdminNote { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? ResolvedDate { get; set; }
+        public string Source { get; set; } = "";
+        public int OccurrenceCount { get; set; }
+        public DateTime? LastSeenDate { get; set; }
+    }
+
+    /// <summary>Sayfada yakalanan beklenmeyen hata (istemci kendiliğinden gönderir)</summary>
+    public class ClientErrorDto
+    {
+        public string? Kind { get; set; }
+        public string? Message { get; set; }
+        public string? Stack { get; set; }
+        public string? PageUrl { get; set; }
+        public string? AppVersion { get; set; }
+        public string? Viewport { get; set; }
     }
 
     public class BugReportStateDto

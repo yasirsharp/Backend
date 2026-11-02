@@ -134,6 +134,40 @@ Ayrıca e-postayla da gelmesini isterseniz:
 Gerçek bildirimlerde gönderim hatası `logs\api-*.log` dosyasına "e-postası gönderilemedi: <neden>" olarak yazılır;
 bildirim her durumda kaydedilir.
 
+## Hataların kendiliğinden kaydı ve gece incelemesi
+
+Uygulama, kullanıcı bildirmese de şu hataları **Yönetim → Hata bildirimleri** ekranına kendiliğinden kaydeder:
+- Beklenmeyen sunucu hataları (500) ve iş katmanında yakalanan beklenmeyen hatalar ("…eklenirken hata oluştu").
+- Sayfa çökmeleri.
+
+Aynı hata tekrar ederse yeni kayıt açılmaz, kaydın sayacı artar. E-posta yalnızca ilk seferde gider. Kayıtlara istek
+gövdesi ve sorgu dizesi yazılmaz.
+
+Her gece yaklaşık 02:40'ta bir Claude oturumu yeni kayıtları inceler. Gerçek hataları test ortamında tekrarlar,
+düzeltir ve test edip dala push eder. Kayda "Düzeltildi: commit …" notu düşer. **Siteye yükleme sizde kalır**
+(Actions → Test sitesine yükle). Talimatlar: `.claude/nightly/hata-duzeltme.md`.
+
+Gece oturumu siteye hiçbir hesapla girmez. Yalnızca hata kayıtlarını okuyup not düşebilen bir **otomasyon
+anahtarı** kullanır. Kurulum:
+
+1. Rastgele bir anahtar üretin. Windows PowerShell'de:
+
+   ```powershell
+   $b = New-Object byte[] 36; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)
+   ```
+
+2. Sunucudaki `web.config` dosyasına ekleyin:
+
+   ```xml
+   <environmentVariable name="BugReports__AutomationKey" value="URETILEN_ANAHTAR" />
+   ```
+
+3. Aynı değeri Claude'un bulut ortamına ekleyin: oturum başlığındaki ortam menüsü → **Edit** → ortam
+   değişkenleri / gizli değerler. Ad: `HAFIZ_AUTOMATION_KEY`.
+
+Anahtarı kimseyle paylaşmayın, sohbete yazmayın. Anahtar en az 32 karakter olmalı; yoksa otomasyon uçları kapalıdır
+(404). Değiştirmek için iki yerde de yenisini yazmanız yeterli.
+
 ## Sunum için demo verisi (isteğe bağlı)
 
 Sistemi tanıtmak için gerçekçi bir veri seti (4 bölüm, 12 derslik, 29 ders, 24 personel, 160 öğrenci, 3 haftalık

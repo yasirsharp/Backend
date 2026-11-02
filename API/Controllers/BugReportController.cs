@@ -84,6 +84,47 @@ namespace API.Controllers
             return Ok(result);
         }
 
+        /// <summary>
+        /// Sayfada yakalanan beklenmeyen hata (çökme, yakalanmamış hata). İstemci kendiliğinden gönderir; ekran
+        /// görüntüsü yoktur. Aynı hata tekrar ederse sayaç artar.
+        /// </summary>
+        [HttpPost("auto")]
+        [EnableRateLimiting("bug-report-auto")]
+        public IActionResult CreateAutomatic([FromBody] ClientErrorDto dto)
+        {
+            var userId = User.GetUserId();
+            if (userId == null)
+                return Unauthorized();
+
+            var kind = BugReportRules.Clip(dto.Kind, 30);
+            var message = BugReportRules.Clip(dto.Message, 1000);
+            if (message.Length == 0)
+                return BadRequest(new ErrorResult("Hata iletisi boş."));
+            var page = BugReportRules.NormalizePath(dto.PageUrl);
+            var name = User.FindFirst(ClaimTypes.Name)?.Value;
+            var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value;
+            var report = new BugReport
+            {
+                UserId = userId.Value,
+                UserName = string.Join(" · ", new[] { name, email }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                Roles = string.Join(", ", User.ClaimRoles() ?? new List<string>()),
+                Description = $"Sayfa hatası ({kind}): {message}",
+                PageUrl = BugReportRules.Clip((dto.PageUrl ?? "").Split('?', '#')[0], 500),
+                AppVersion = dto.AppVersion ?? "",
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                Viewport = dto.Viewport ?? "",
+                ClientLog = BugReportRules.Clip(dto.Stack, 8000),
+                Source = BugReportSources.Istemci,
+                Fingerprint = BugReportRules.Fingerprint(BugReportSources.Istemci, kind, BugReportRules.NormalizeMessage(message), page),
+            };
+            var result = _bugReportService.RecordAutomatic(report);
+            if (!result.Success)
+                return BadRequest(result);
+            if (result.Data.IsNew)
+                _mailer.SendInBackground(report, $"{Request.Scheme}://{Request.Host}/yonetim/hata-bildirimleri?id={result.Data.Id}");
+            return Ok(new SuccessDataResult<int>(result.Data.Id));
+        }
+
         /// <summary>SMTP ayarını denemek için yöneticilere deneme e-postası gönderir (sonucu hemen döner)</summary>
         [HttpPost("test-email")]
         [Authorize(Roles = Roles.Yonetici)]

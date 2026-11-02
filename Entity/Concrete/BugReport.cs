@@ -27,9 +27,24 @@ namespace Entity.Concrete
         public string? AdminNote { get; set; }
         public DateTime? ResolvedDate { get; set; }
 
+        /// <summary>kullanici (elle), istemci (sayfa çöktü), sunucu (beklenmeyen sunucu hatası)</summary>
+        public string Source { get; set; } = BugReportSources.Kullanici;
+        /// <summary>Otomatik kayıtlarda aynı hatayı tanımak için (tür + kod yeri + yol); elle bildirimlerde boş</summary>
+        public string? Fingerprint { get; set; }
+        /// <summary>Aynı otomatik hatanın kaç kez görüldüğü</summary>
+        public int OccurrenceCount { get; set; } = 1;
+        public DateTime? LastSeenDate { get; set; }
+
         public DateTime CreatedDate { get; set; }
         public DateTime? UpdatedDate { get; set; }
         public bool Status { get; set; } = true;
+    }
+
+    public static class BugReportSources
+    {
+        public const string Kullanici = "kullanici";
+        public const string Istemci = "istemci";
+        public const string Sunucu = "sunucu";
     }
 
     public static class BugReportStates

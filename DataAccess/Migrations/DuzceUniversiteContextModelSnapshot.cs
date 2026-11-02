@@ -516,6 +516,18 @@ namespace DataAccess.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("Fingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("LastSeenDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("OccurrenceCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("PageUrl")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -535,6 +547,13 @@ namespace DataAccess.Migrations
                     b.Property<string>("ScreenshotContentType")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("kullanici");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -566,6 +585,8 @@ namespace DataAccess.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Fingerprint");
 
                     b.HasIndex("State");
 

@@ -33,6 +33,49 @@ namespace Business.Concrete
                 report.Screenshot = null;
             report.ScreenshotContentType = report.Screenshot == null ? null : BugReportRules.DetectImageType(report.Screenshot);
 
+            Normalize(report);
+            report.Source = BugReportSources.Kullanici;
+            report.Fingerprint = null;
+            report.OccurrenceCount = 1;
+            report.LastSeenDate = report.CreatedDate = DateTime.Now;
+            report.AdminNote = null;
+
+            _bugReportDal.Add(report);
+            return new SuccessDataResult<int>(report.Id, "Hata bildiriminiz alındı. Teşekkürler!");
+        }
+
+        public IDataResult<(int Id, bool IsNew)> RecordAutomatic(BugReport report)
+        {
+            report.Description = BugReportRules.Clip(report.Description, BugReportRules.MaxDescriptionChars);
+            if (report.Description.Length == 0 || string.IsNullOrEmpty(report.Fingerprint))
+                return new ErrorDataResult<(int, bool)>("Eksik hata bilgisi.");
+            report.Screenshot = null;
+            report.ScreenshotContentType = null;
+            Normalize(report);
+
+            var now = DateTime.Now;
+            var open = _bugReportDal.Get(x => x.Fingerprint == report.Fingerprint && x.State != BugReportStates.Cozuldu);
+            if (open != null)
+            {
+                open.OccurrenceCount++;
+                open.LastSeenDate = now;
+                open.UpdatedDate = now;
+                _bugReportDal.Update(open);
+                return new SuccessDataResult<(int, bool)>((open.Id, false));
+            }
+
+            var resolved = _bugReportDal.GetAll(x => x.Fingerprint == report.Fingerprint && x.State == BugReportStates.Cozuldu)
+                .OrderByDescending(x => x.Id).FirstOrDefault();
+            report.AdminNote = resolved == null ? null : $"Daha önce çözüldü olarak kapatılan hata (#{resolved.Id}) tekrar etti.";
+            report.OccurrenceCount = 1;
+            report.LastSeenDate = report.CreatedDate = now;
+            _bugReportDal.Add(report);
+            return new SuccessDataResult<(int, bool)>((report.Id, true));
+        }
+
+        /// <summary>Alanları kırpar ve yeni kaydın durumunu sıfırlar (istemciye güvenilmez)</summary>
+        private static void Normalize(BugReport report)
+        {
             report.UserName = BugReportRules.Clip(report.UserName, 200);
             report.Roles = BugReportRules.Clip(report.Roles, 300);
             report.PageUrl = BugReportRules.Clip(report.PageUrl, 500);
@@ -43,13 +86,8 @@ namespace Business.Concrete
                 ? null
                 : BugReportRules.Clip(report.ClientLog, BugReportRules.MaxClientLogChars);
             report.State = BugReportStates.Yeni;
-            report.AdminNote = null;
             report.ResolvedDate = null;
-            report.CreatedDate = DateTime.Now;
             report.Status = true;
-
-            _bugReportDal.Add(report);
-            return new SuccessDataResult<int>(report.Id, "Hata bildiriminiz alındı. Teşekkürler!");
         }
 
         public IDataResult<List<BugReportSummaryDto>> GetList(string? state)

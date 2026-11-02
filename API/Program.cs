@@ -163,8 +163,21 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+    // Sayfa çökmesi kayıtları: kullanıcı başına dakikada 10 (istemci ayrıca kendi sınırını uygular)
+    options.AddPolicy("bug-report-auto", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    // Gece otomasyonu: IP başına dakikada 60
+    options.AddPolicy("automation", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 builder.Services.AddSingleton<API.Services.BugReportMailer>();
+builder.Services.AddSingleton<Core.Utilities.Reporting.IUnhandledExceptionReporter, API.Services.AutoBugReporter>();
+builder.Services.AddScoped<API.Controllers.AutomationKeyFilter>();
 
 builder.Host
     .UseServiceProviderFactory(new AutofacServiceProviderFactory())
@@ -189,6 +202,9 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// İş katmanında yakalanan beklenmeyen hatalar da hata bildirimlerine kaydedilsin
+Core.Utilities.Results.ExceptionLogger.Reporter = app.Services.GetRequiredService<Core.Utilities.Reporting.IUnhandledExceptionReporter>();
 
 // Veritabanı hazırlığı (isteğe bağlı migration + ilk yönetici hesabı)
 await DatabaseInitializer.InitializeAsync(app.Configuration, app.Logger);
@@ -236,6 +252,11 @@ app.UseMiddleware<PasswordChangeRequiredMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Yalnızca geliştirmede: kendiliğinden hata kaydını denemek için bilerek hata fırlatır (uçtan uca testler)
+if (app.Environment.IsDevelopment())
+    app.MapGet("/api/dev/throw", (int? n) => (IResult)Results.Text(((string?)null)!.Length.ToString()))
+        .AllowAnonymous();
 
 // Sağlık kontrolü (izleme ve kurulum sonrası test için): veritabanına bağlanabiliyor mu?
 app.MapGet("/health", async () =>

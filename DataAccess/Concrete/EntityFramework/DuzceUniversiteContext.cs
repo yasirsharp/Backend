@@ -208,7 +208,11 @@ namespace DataAccess.Concrete.EntityFramework
                 e.Property(x => x.ScreenshotContentType).HasMaxLength(50);
                 e.Property(x => x.State).HasMaxLength(20).IsRequired();
                 e.Property(x => x.AdminNote).HasMaxLength(2000);
+                e.Property(x => x.Source).HasMaxLength(20).IsRequired().HasDefaultValue(BugReportSources.Kullanici);
+                e.Property(x => x.Fingerprint).HasMaxLength(64);
+                e.Property(x => x.OccurrenceCount).HasDefaultValue(1);
                 e.HasIndex(x => x.State);
+                e.HasIndex(x => x.Fingerprint);
             });
         }
 

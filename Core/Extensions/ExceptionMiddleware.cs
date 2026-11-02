@@ -1,6 +1,8 @@
 using FluentValidation;
 using FluentValidation.Results;
+using Core.Utilities.Reporting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -65,6 +67,15 @@ namespace Core.Extensions
 
             // Beklenmeyen hatanın ayrıntısı sadece loglanır; istemciye iç bilgi (SQL, stack trace) gönderilmez.
             _logger.LogError(e, "İşlenmeyen hata: {Method} {Path}", httpContext.Request.Method, httpContext.Request.Path);
+            try
+            {
+                // Hata bildirimlerine kendiliğinden kaydedilir (tekrar edenlerin sayacı artar)
+                httpContext.RequestServices.GetService<IUnhandledExceptionReporter>()?.Report(e);
+            }
+            catch (Exception reportError)
+            {
+                _logger.LogWarning(reportError, "Hata bildirimi kaydedilemedi");
+            }
 
             httpContext.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
             return httpContext.Response.WriteAsync(new ErrorDetails

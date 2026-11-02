@@ -648,6 +648,55 @@ BEGIN
     VALUES (N'20261031082716_AddBugReport', N'9.0.0');
 END;
 
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261102113018_AutoBugReports'
+)
+BEGIN
+    ALTER TABLE [BugReports] ADD [Fingerprint] nvarchar(64) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261102113018_AutoBugReports'
+)
+BEGIN
+    ALTER TABLE [BugReports] ADD [LastSeenDate] datetime2 NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261102113018_AutoBugReports'
+)
+BEGIN
+    ALTER TABLE [BugReports] ADD [OccurrenceCount] int NOT NULL DEFAULT 1;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261102113018_AutoBugReports'
+)
+BEGIN
+    ALTER TABLE [BugReports] ADD [Source] nvarchar(20) NOT NULL DEFAULT N'kullanici';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261102113018_AutoBugReports'
+)
+BEGIN
+    CREATE INDEX [IX_BugReports_Fingerprint] ON [BugReports] ([Fingerprint]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261102113018_AutoBugReports'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261102113018_AutoBugReports', N'9.0.0');
+END;
+
 COMMIT;
 GO
 

@@ -123,6 +123,104 @@ namespace Tests
         }
 
         [Fact]
+        public void Paths_are_normalized_without_ids_and_query()
+        {
+            Assert.Equal("/api/sinavdetay/{id}", BugReportRules.NormalizePath("/api/SinavDetay/42?search=Ali"));
+            Assert.Equal("/tanimlar/dersler", BugReportRules.NormalizePath("https://site/tanimlar/dersler#x"));
+            Assert.Equal("/api/x/{id}/y", BugReportRules.NormalizePath("/api/x/3f2504e0-4f89-11d3-9a0c-0305e82c3301/y"));
+        }
+
+        [Fact]
+        public void Fingerprint_is_stable_and_ignores_numbers_in_messages()
+        {
+            var a = BugReportRules.Fingerprint("istemci", "error", BugReportRules.NormalizeMessage("Sınav 12 bulunamadı"), "/x");
+            var b = BugReportRules.Fingerprint("istemci", "error", BugReportRules.NormalizeMessage("Sınav 345 bulunamadı"), "/x");
+            Assert.Equal(a, b);
+            Assert.Equal(64, a.Length);
+            Assert.NotEqual(a, BugReportRules.Fingerprint("istemci", "error", "başka", "/x"));
+        }
+
+        [Fact]
+        public void App_frame_points_to_application_code()
+        {
+            try
+            {
+                Business.Helpers.BugReportRules.Clip(null, -1); // ArgumentOutOfRange: uygulama kodunda fırlar
+            }
+            catch (Exception ex)
+            {
+                Assert.StartsWith("Business.Helpers.BugReportRules.Clip", BugReportRules.AppFrame(ex));
+            }
+        }
+
+        [Fact]
+        public void Automatic_reports_are_counted_and_reopened_after_resolution()
+        {
+            var dal = new FakeDal();
+            var manager = new BugReportManager(dal);
+            BugReport Auto() => new() { Description = "Sunucu hatası: NullReferenceException", Fingerprint = "abc", Source = BugReportSources.Sunucu };
+
+            var first = manager.RecordAutomatic(Auto());
+            var second = manager.RecordAutomatic(Auto());
+            Assert.True(first.Data.IsNew);
+            Assert.False(second.Data.IsNew);
+            Assert.Equal(first.Data.Id, second.Data.Id);
+            Assert.Equal(2, dal.Items.Single().OccurrenceCount);
+            Assert.Equal(BugReportSources.Sunucu, dal.Items.Single().Source);
+
+            manager.UpdateState(first.Data.Id, new BugReportStateDto { State = BugReportStates.Cozuldu });
+            var again = manager.RecordAutomatic(Auto());
+            Assert.True(again.Data.IsNew);
+            Assert.Contains("tekrar etti", dal.Items.Last().AdminNote);
+
+            Assert.False(manager.RecordAutomatic(new BugReport { Description = "x" }).Success); // parmak izi zorunlu
+        }
+
+        [Fact]
+        public void Manual_reports_cannot_pose_as_automatic()
+        {
+            var dal = new FakeDal();
+            new BugReportManager(dal).Add(new BugReport { Description = "elle", Source = BugReportSources.Sunucu, Fingerprint = "abc", OccurrenceCount = 99 });
+            Assert.Equal(BugReportSources.Kullanici, dal.Items[0].Source);
+            Assert.Null(dal.Items[0].Fingerprint);
+            Assert.Equal(1, dal.Items[0].OccurrenceCount);
+        }
+
+        private class RecordingReporter : Core.Utilities.Reporting.IUnhandledExceptionReporter
+        {
+            public readonly List<(Exception, string?)> Calls = new();
+            public void Report(Exception exception, string? context = null) => Calls.Add((exception, context));
+        }
+
+        [Fact]
+        public void Caught_business_exceptions_are_reported_with_user_message()
+        {
+            var reporter = new RecordingReporter();
+            var previous = Core.Utilities.Results.ExceptionLogger.Reporter;
+            Core.Utilities.Results.ExceptionLogger.Reporter = reporter;
+            try
+            {
+                var message = Core.Utilities.Results.ExceptionLogger.Log(new InvalidOperationException("db"), "Sınav eklenemedi.");
+                Assert.Equal("Sınav eklenemedi.", message);
+                Assert.Equal("Sınav eklenemedi.", reporter.Calls.Single().Item2);
+            }
+            finally
+            {
+                Core.Utilities.Results.ExceptionLogger.Reporter = previous;
+            }
+        }
+
+        [Fact]
+        public void Automation_key_requires_long_exact_match()
+        {
+            var key = new string('k', 40);
+            Assert.True(API.Controllers.AutomationKeyFilter.KeyMatches(key, key));
+            Assert.False(API.Controllers.AutomationKeyFilter.KeyMatches(key, key + "x"));
+            Assert.False(API.Controllers.AutomationKeyFilter.KeyMatches(key, null));
+            Assert.False(API.Controllers.AutomationKeyFilter.KeyMatches("kisa", "kisa")); // 32 karakterden kısa anahtar kabul edilmez
+        }
+
+        [Fact]
         public void Mail_body_contains_context_and_link()
         {
             var body = BugReportMailer.BuildBody(new BugReport

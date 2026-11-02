@@ -518,6 +518,18 @@ namespace DataAccess.MySql.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
+                    b.Property<string>("Fingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime?>("LastSeenDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("OccurrenceCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("PageUrl")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -537,6 +549,13 @@ namespace DataAccess.MySql.Migrations
                     b.Property<string>("ScreenshotContentType")
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("kullanici");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -568,6 +587,8 @@ namespace DataAccess.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Fingerprint");
 
                     b.HasIndex("State");
 
