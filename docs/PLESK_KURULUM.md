@@ -97,7 +97,7 @@ Kaydettiğinizde IIS uygulamayı kendisi yeniden başlatır.
 
 ## Hata bildirimlerini e-postayla alma (isteğe bağlı)
 
-Kullanıcılar uygulamada **Alt+Shift+H**, telefonu sallama veya sağ alttaki **Hata bildir** düğmesiyle ekran
+Kullanıcılar uygulamada **Alt+Shift+H**, telefonu sallama veya sol alttaki **Hata bildir** düğmesiyle ekran
 görüntülü hata bildirimi gönderir. Bildirimler her durumda **Yönetim → Hata bildirimleri** ekranında görünür.
 Ayrıca e-postayla da gelmesini isterseniz:
 
