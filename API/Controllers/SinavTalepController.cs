@@ -123,6 +123,7 @@ namespace API.Controllers
                             Id = t.Id,
                             SinavDetayId = t.SinavDetayId,
                             SinavVar = sinavIds.Contains(t.SinavDetayId),
+                            SinavTarihi = context.SinavDetay.Where(s => s.Id == t.SinavDetayId).Select(s => (DateTime?)s.SinavTarihi).FirstOrDefault(),
                             BolumId = t.BolumId,
                             BolumAd = b != null ? b.Ad : "",
                             SinavOzeti = t.SinavOzeti,

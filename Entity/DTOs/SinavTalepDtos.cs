@@ -23,6 +23,8 @@ namespace Entity.DTOs
         public int Id { get; set; }
         public int SinavDetayId { get; set; }
         public bool SinavVar { get; set; }
+        /// <summary>Sınavın şimdiki tarihi (takvimde o haftayı açmak için); sınav silindiyse boş</summary>
+        public DateTime? SinavTarihi { get; set; }
         public int BolumId { get; set; }
         public string BolumAd { get; set; } = "";
         public string SinavOzeti { get; set; } = "";

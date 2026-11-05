@@ -57,6 +57,9 @@ Her kayıt için birini seç:
   küçükse düzelt.
 - **Yetersiz bilgi:** tekrarlanamıyor ve kayıt yeterli değil. Notta neyin eksik olduğunu yaz.
 - **Tekrar:** başka bir kayıtla aynı. Notta diğer kaydın numarasını yaz.
+- **Sunucu ayarı:** kod değil, barındırma ayarı. Örnek: `PUT`/`DELETE` isteklerinde **405** (IIS WebDAV modülü).
+  Kodda düzeltme yapma. Notta `docs/PLESK_KURULUM.md` sorun giderme tablosundaki satırı göster; rapora "sunucuda
+  yapılacak" diye yaz.
 
 ## 3. Gerçek hataları düzelt
 
