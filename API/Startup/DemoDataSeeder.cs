@@ -236,6 +236,37 @@ namespace API.Startup
                 var atamalar = await SeedAtamalarAsync();
                 await SeedSinavlarAsync(atamalar);
                 await SeedDuyurularAsync();
+                await SeedTalepAsync();
+            }
+
+            /// <summary>Mehmet Demir'in Veritabanı sınavı için bekleyen bir değişiklik talebi (Talepler ekranı boş görünmesin)</summary>
+            private async Task SeedTalepAsync()
+            {
+                var mehmet = _personel["Mehmet Demir"];
+                var sinav = await (from sd in _c.SinavDetay
+                                   join d in _c.DersBolumAkademikPersonel on sd.DersBolumAkademikPersonelId equals d.Id
+                                   join ders in _c.Ders on d.DersId equals ders.Id
+                                   where d.AkademikPersonelId == mehmet.Id && SinavIds.Contains(sd.Id)
+                                   orderby sd.SinavTarihi descending
+                                   select new { sd.Id, sd.SinavTarihi, sd.SinavBaslangicSaati, sd.SinavBitisSaati, d.BolumId, ders.Kod, ders.Ad })
+                    .FirstOrDefaultAsync();
+                if (sinav == null) return;
+                var tr = new System.Globalization.CultureInfo("tr-TR");
+                _c.SinavDegisiklikTalepleri.Add(new SinavDegisiklikTalebi
+                {
+                    SinavDetayId = sinav.Id,
+                    BolumId = sinav.BolumId,
+                    SinavOzeti = $"{sinav.Kod} {sinav.Ad} · {sinav.SinavTarihi.ToString("d MMMM yyyy dddd", tr)} {sinav.SinavBaslangicSaati:HH\\:mm}-{sinav.SinavBitisSaati:HH\\:mm}",
+                    TalepEdenUserId = mehmet.UserId,
+                    TalepEdenAd = "Mehmet Demir",
+                    Gorev = "ogretim-elemani",
+                    Neden = "Aynı gün başka bir fakültede jüri görevim var; sınavı bir gün sonraya alabilir miyiz?",
+                    OnerilenTarih = sinav.SinavTarihi.AddDays(1),
+                    OnerilenBaslangic = sinav.SinavBaslangicSaati,
+                    OnerilenBitis = sinav.SinavBitisSaati,
+                    CreatedDate = _now,
+                });
+                await _c.SaveChangesAsync();
             }
 
             private async Task SeedBolumlerAsync()
@@ -334,7 +365,11 @@ namespace API.Startup
             {
                 var admin = await AddUserAsync("Demo", "Yönetici", MarkerUserName, $"{MarkerUserName}@{EmailDomain}", Roles.Admin);
                 _adminUserId = admin.Id;
-                await AddUserAsync("Nihat", "Sarı", "fakulte.sekreteri", $"fakulte.sekreteri@{EmailDomain}", Roles.GorevliPersonel);
+                // Görevli personel: Bilgisayar ve Elektrik-Elektronik bölümlerinin bilgisini görür (salt okunur)
+                var sekreter = await AddUserAsync("Nihat", "Sarı", "fakulte.sekreteri", $"fakulte.sekreteri@{EmailDomain}", Roles.GorevliPersonel);
+                foreach (var b in new[] { "BLM", "EEM" })
+                    _c.KullaniciBolum.Add(new KullaniciBolum { UserId = sekreter.Id, BolumId = _bolum[b], Status = true, CreatedDate = _now });
+                await _c.SaveChangesAsync();
 
                 foreach (var p in Personeller)
                 {

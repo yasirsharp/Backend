@@ -55,6 +55,8 @@ namespace API.Services
                 var user = http?.User;
                 var name = user?.FindFirst(ClaimTypes.Name)?.Value;
                 var email = user?.FindFirst(ClaimTypes.Email)?.Value ?? user?.FindFirst("email")?.Value;
+                var actAs = user?.FindFirst(Business.Concrete.AuthManager.ActAsByNameClaim)?.Value;
+                if (actAs != null) name = $"{name} ({actAs} adına)";
                 var stack = exception.ToString();
                 var report = new BugReport
                 {

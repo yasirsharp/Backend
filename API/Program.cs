@@ -250,6 +250,17 @@ app.UseRateLimiter();
 // Geçici parolalı kullanıcı parolasını değiştirene kadar diğer API uçlarını kullanamaz
 app.UseMiddleware<PasswordChangeRequiredMiddleware>();
 
+// Süper yönetici başka kullanıcı olarak işlem yapıyorsa her değişiklik gerçek kişiyle birlikte loglanır
+app.Use(async (context, next) =>
+{
+    var by = context.User.FindFirst(Business.Concrete.AuthManager.ActAsByNameClaim)?.Value;
+    if (by != null && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+        app.Logger.LogInformation("Kişi olarak işlem: {Actor} → {User} (#{UserId}) {Method} {Path}",
+            by, context.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value,
+            context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, context.Request.Method, context.Request.Path);
+    await next();
+});
+
 app.UseAuthorization();
 
 app.MapControllers();

@@ -20,6 +20,9 @@ namespace Business.Abstract
         IDataResult<User> GetByUserName(string userName);
         IDataResult<List<OperationClaim>> GetClaims(User user);
         IDataResult<List<int>> GetBolumIds(int userId);
+        /// <summary>Görevli personelin görebileceği bölümler</summary>
+        IDataResult<List<int>> GetOkumaBolumIds(int userId);
+        IResult SetOkumaBolumIds(int userId, List<int> bolumIds);
         IDataResult<List<User>> GetAll();
         IDataResult<List<UserWithRolesDto>> GetAllWithRoles();
         IDataResult<PagedResult<User>> GetPagedList(PaginationParams paginationParams);

@@ -11,29 +11,48 @@ namespace API.Security
     public class BolumScopeRules
     {
         public bool IsGlobal { get; }
-        /// <summary>Bölüm görevlisi ve yönetici değil: bölüm süzgeci uygulanır</summary>
+        /// <summary>Okuma süzgeci uygulanır (yönetici dışında herkes)</summary>
         public bool IsScoped { get; }
+        /// <summary>Yalnızca kendi görevleri: bölümü olmayan akademik personel (dersini verdiği ve gözetmen olduğu sınavlar)</summary>
+        public bool OwnTasksOnly { get; }
+        /// <summary>Görebileceği bölümler: bölüm görevlisi + görevli personel bölümleri</summary>
         public IReadOnlySet<int> BolumIds { get; }
+        /// <summary>Değiştirebileceği bölümler: yalnızca bölüm görevlisi olduğu bölümler</summary>
+        public IReadOnlySet<int> ManageBolumIds { get; }
 
         public BolumScopeRules(bool isGlobal, bool isBolumGorevlisi, IEnumerable<int> bolumIds)
+            : this(isGlobal, isBolumGorevlisi ? bolumIds : Array.Empty<int>(), Array.Empty<int>(), isPersonel: true, isBolumGorevlisi) { }
+
+        /// <param name="gorevliBolumIds">Bölüm görevlisi olduğu bölümler</param>
+        /// <param name="okumaBolumIds">Görevli personel olarak atandığı bölümler (salt okunur)</param>
+        /// <param name="isPersonel">Personel rolü var mı (öğrenci bu kuralların dışında, kendi kurallarıyla)</param>
+        public BolumScopeRules(bool isGlobal, IEnumerable<int> gorevliBolumIds, IEnumerable<int> okumaBolumIds, bool isPersonel,
+            bool isBolumGorevlisi = false, bool isGorevliPersonel = false)
         {
             IsGlobal = isGlobal;
-            IsScoped = !isGlobal && isBolumGorevlisi;
-            BolumIds = bolumIds.ToHashSet();
+            ManageBolumIds = gorevliBolumIds.ToHashSet();
+            BolumIds = gorevliBolumIds.Concat(okumaBolumIds).ToHashSet();
+            IsScoped = !isGlobal && isPersonel;
+            // Bölüm görevlisi ya da görevli personel rolü olan kişi bölüm kapsamındadır (bölümü atanmamış olsa bile)
+            OwnTasksOnly = IsScoped && !isBolumGorevlisi && !isGorevliPersonel && BolumIds.Count == 0;
         }
 
+        /// <summary>Okuma: bölümün kayıtlarını görebilir mi</summary>
         public bool CanAccess(int bolumId) => !IsScoped || BolumIds.Contains(bolumId);
 
-        /// <summary>Bir kaydın görülebilmesi: bölümlerinden biri kendi bölümü ya da kayıt ortak (bölümsüz)</summary>
+        /// <summary>Yazma: bölümün kayıtlarını değiştirebilir mi (yalnız bölüm görevlisi olduğu bölümler)</summary>
+        public bool CanWrite(int bolumId) => !IsScoped || ManageBolumIds.Contains(bolumId);
+
+        /// <summary>Bir kaydın görülebilmesi: bölümlerinden biri görebildiği bölüm ya da kayıt ortak (bölümsüz)</summary>
         public bool CanSee(IReadOnlyCollection<int> recordBolumIds) =>
-            !IsScoped || recordBolumIds.Count == 0 || recordBolumIds.Any(BolumIds.Contains);
+            !IsScoped || (!OwnTasksOnly && (recordBolumIds.Count == 0 || recordBolumIds.Any(BolumIds.Contains)));
 
         /// <summary>
         /// Bir kaydın değiştirilebilmesi: ortak (bölümsüz) kayıt yalnızca yönetici; diğerlerinde kaydın bütün bölümleri
-        /// kendi bölümleri olmalı (iki bölümün dersini bir bölümün görevlisi değiştiremez).
+        /// bölüm görevlisi olduğu bölümler olmalı (iki bölümün dersini bir bölümün görevlisi değiştiremez).
         /// </summary>
         public bool CanManage(IReadOnlyCollection<int> recordBolumIds) =>
-            !IsScoped || (recordBolumIds.Count > 0 && recordBolumIds.All(BolumIds.Contains));
+            !IsScoped || (recordBolumIds.Count > 0 && recordBolumIds.All(ManageBolumIds.Contains));
     }
 
     /// <summary>
@@ -65,18 +84,24 @@ namespace API.Security
         {
             var user = User;
             var isGlobal = user?.IsInAnyRole(Roles.Yonetici) == true;
+            var isPersonel = user?.IsInAnyRole(Roles.Personel) == true;
             var isGorevli = user?.IsInRole(Roles.BolumGorevlisi) == true;
+            var isGp = user?.IsInRole(Roles.GorevliPersonel) == true;
             var userId = user?.GetUserId();
-            var ids = new List<int>();
-            if (!isGlobal && isGorevli && userId != null)
+            var gorevli = new List<int>();
+            var okuma = new List<int>();
+            if (!isGlobal && userId != null && (isGorevli || isGp))
             {
                 using var context = new DuzceUniversiteContext();
-                ids = (from bap in context.BolumAkademikPersoneller
-                       join ap in context.AkademikPersonel on bap.AkademikPersonelId equals ap.Id
-                       where ap.UserId == userId.Value
-                       select bap.BolumId).Distinct().ToList();
+                if (isGorevli)
+                    gorevli = (from bap in context.BolumAkademikPersoneller
+                               join ap in context.AkademikPersonel on bap.AkademikPersonelId equals ap.Id
+                               where ap.UserId == userId.Value
+                               select bap.BolumId).Distinct().ToList();
+                if (isGp)
+                    okuma = context.KullaniciBolum.Where(x => x.UserId == userId.Value).Select(x => x.BolumId).ToList();
             }
-            return new BolumScopeRules(isGlobal, isGorevli, ids);
+            return new BolumScopeRules(isGlobal, gorevli, okuma, isPersonel, isGorevli, isGp);
         }
 
         /// <summary>Kullanıcının akademik personel kaydı (dersin hocası / gözetmen istisnası için)</summary>
@@ -95,6 +120,8 @@ namespace API.Security
         }
 
         public bool CanAccess(int bolumId) => Rules.CanAccess(bolumId);
+        public bool CanWrite(int bolumId) => Rules.CanWrite(bolumId);
+        public bool OwnTasksOnly => Rules.OwnTasksOnly;
         public bool CanSee(IReadOnlyCollection<int> bolumIds) => Rules.CanSee(bolumIds);
         public bool CanManage(IReadOnlyCollection<int> bolumIds) => Rules.CanManage(bolumIds);
 

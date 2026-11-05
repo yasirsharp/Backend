@@ -28,11 +28,21 @@ namespace API.Controllers
                 ? Array.Empty<int>()
                 : bolumIds.Split(',').Select(id => int.TryParse(id.Trim(), out var v) ? v : 0).Where(id => id > 0).ToArray();
 
-        /// <summary>Bölüm görevlisi yalnızca kendi bölümlerinin raporunu alır (istenmezse tüm kendi bölümleri)</summary>
+        /// <summary>Akademik personel: yalnızca dersini verdiği ve gözetmen olduğu sınavlar</summary>
+        private Func<Entity.DTOs.SinavDetayDTO, bool>? OwnTasksFilter()
+        {
+            if (!_scope.OwnTasksOnly)
+                return null;
+            var me = _scope.PersonelId;
+            var myDbaps = _scope.MyDbapIds();
+            return s => myDbaps.Contains(s.DersBolumAkademikPersonelId) || (me != null && (s.Derslikler ?? new()).Any(d => d.GozetmenId == me));
+        }
+
+        /// <summary>Bölüm görevlisi ve görevli personel yalnızca kendi bölümlerinin raporunu alır (istenmezse tüm kendi bölümleri)</summary>
         private int[] ScopeBolumIds(int[] requested)
         {
-            if (!_scope.IsScoped)
-                return requested;
+            if (!_scope.IsScoped || _scope.OwnTasksOnly)
+                return _scope.OwnTasksOnly ? Array.Empty<int>() : requested;
             var own = _scope.Rules.BolumIds;
             var allowed = requested.Where(own.Contains).ToArray();
             return allowed.Length > 0 ? allowed : own.Count > 0 ? own.ToArray() : new[] { -1 };
@@ -61,7 +71,7 @@ namespace API.Controllers
                 bolumIdArray = new[] { ogrenciBolumId };
             }
 
-            var result = _reportService.GenerateOfficialSinavReport(startDate, endDate, bolumIdArray);
+            var result = _reportService.GenerateOfficialSinavReport(startDate, endDate, bolumIdArray, User.IsInAnyRole(Roles.Personel) ? OwnTasksFilter() : null);
 
             if (!result.Success)
             {
@@ -85,7 +95,7 @@ namespace API.Controllers
             [FromQuery] DateTime endDate,
             [FromQuery] string? bolumIds = null)
         {
-            var result = _reportService.GenerateGozetmenAssignmentReport(startDate, endDate, ScopeBolumIds(ParseBolumIds(bolumIds)));
+            var result = _reportService.GenerateGozetmenAssignmentReport(startDate, endDate, ScopeBolumIds(ParseBolumIds(bolumIds)), OwnTasksFilter());
 
             if (!result.Success)
             {
@@ -108,7 +118,7 @@ namespace API.Controllers
             [FromQuery] DateTime endDate,
             [FromQuery] string? bolumIds = null)
         {
-            var result = _reportService.GenerateDerslikUsageReport(startDate, endDate, ScopeBolumIds(ParseBolumIds(bolumIds)));
+            var result = _reportService.GenerateDerslikUsageReport(startDate, endDate, ScopeBolumIds(ParseBolumIds(bolumIds)), OwnTasksFilter());
 
             if (!result.Success)
             {

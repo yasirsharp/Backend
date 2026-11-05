@@ -1039,5 +1039,119 @@ DELIMITER ;
 CALL MigrationsScript();
 DROP PROCEDURE MigrationsScript;
 
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261105165918_RollerTaleplerGorevliBolum') THEN
+
+    CREATE TABLE `KullaniciBolum` (
+        `Id` int NOT NULL AUTO_INCREMENT,
+        `UserId` int NOT NULL,
+        `BolumId` int NOT NULL,
+        `CreatedDate` datetime(6) NOT NULL,
+        `UpdatedDate` datetime(6) NULL,
+        `Status` tinyint(1) NOT NULL,
+        CONSTRAINT `PK_KullaniciBolum` PRIMARY KEY (`Id`)
+    ) CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261105165918_RollerTaleplerGorevliBolum') THEN
+
+    CREATE TABLE `SinavDegisiklikTalepleri` (
+        `Id` int NOT NULL AUTO_INCREMENT,
+        `SinavDetayId` int NOT NULL,
+        `BolumId` int NOT NULL,
+        `SinavOzeti` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `TalepEdenUserId` int NOT NULL,
+        `TalepEdenAd` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `Gorev` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `Neden` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `OnerilenTarih` datetime(6) NULL,
+        `OnerilenBaslangic` time(6) NULL,
+        `OnerilenBitis` time(6) NULL,
+        `Durum` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+        `YanitNotu` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+        `YanitlayanUserId` int NULL,
+        `YanitlayanAd` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
+        `YanitTarihi` datetime(6) NULL,
+        `CreatedDate` datetime(6) NOT NULL,
+        `UpdatedDate` datetime(6) NULL,
+        `Status` tinyint(1) NOT NULL,
+        CONSTRAINT `PK_SinavDegisiklikTalepleri` PRIMARY KEY (`Id`)
+    ) CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261105165918_RollerTaleplerGorevliBolum') THEN
+
+    CREATE UNIQUE INDEX `IX_KullaniciBolum_UserId_BolumId` ON `KullaniciBolum` (`UserId`, `BolumId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261105165918_RollerTaleplerGorevliBolum') THEN
+
+    CREATE INDEX `IX_SinavDegisiklikTalepleri_BolumId_Durum` ON `SinavDegisiklikTalepleri` (`BolumId`, `Durum`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261105165918_RollerTaleplerGorevliBolum') THEN
+
+    CREATE INDEX `IX_SinavDegisiklikTalepleri_TalepEdenUserId` ON `SinavDegisiklikTalepleri` (`TalepEdenUserId`);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20261105165918_RollerTaleplerGorevliBolum') THEN
+
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+    VALUES ('20261105165918_RollerTaleplerGorevliBolum', '9.0.0');
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
 COMMIT;
 

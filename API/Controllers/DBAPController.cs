@@ -126,7 +126,7 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Add(DersBolumAkademikPersonel dersBolumAkademikPersonel)
         {
-            if (!_scope.CanAccess(dersBolumAkademikPersonel.BolumId))
+            if (!_scope.CanWrite(dersBolumAkademikPersonel.BolumId))
                 return OwnBolumOnly();
             var result = _dbapService.Add(dersBolumAkademikPersonel);
             if (result.Success)
@@ -139,8 +139,8 @@ namespace API.Controllers
         public IActionResult Update(DersBolumAkademikPersonel dersBolumAkademikPersonel)
         {
             // Hem şimdiki hem yeni bölüm kendi bölümü olmalı
-            if (_scope.IsScoped && !(BolumScope.BolumOfDbap(dersBolumAkademikPersonel.Id) is { } eski && _scope.CanAccess(eski)
-                                     && _scope.CanAccess(dersBolumAkademikPersonel.BolumId)))
+            if (_scope.IsScoped && !(BolumScope.BolumOfDbap(dersBolumAkademikPersonel.Id) is { } eski && _scope.CanWrite(eski)
+                                     && _scope.CanWrite(dersBolumAkademikPersonel.BolumId)))
                 return OwnBolumOnly();
             var result = _dbapService.Update(dersBolumAkademikPersonel);
             if (result.Success)
@@ -155,7 +155,7 @@ namespace API.Controllers
             var dbap = _dbapService.GetById(id).Data;
             if (dbap == null)
                 return NotFound(new { Success = false, Message = "DBAP kaydı bulunamadı" });
-            if (!_scope.CanAccess(dbap.BolumId))
+            if (!_scope.CanWrite(dbap.BolumId))
                 return OwnBolumOnly();
 
             var result = _dbapService.Delete(dbap);

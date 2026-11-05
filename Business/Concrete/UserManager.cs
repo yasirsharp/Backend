@@ -67,6 +67,17 @@ namespace Business.Concrete
             }
         }
 
+        public IDataResult<List<int>> GetOkumaBolumIds(int userId) =>
+            new SuccessDataResult<List<int>>(_userDal.GetOkumaBolumIds(userId));
+
+        public IResult SetOkumaBolumIds(int userId, List<int> bolumIds)
+        {
+            if (_userDal.Get(u => u.Id == userId) == null)
+                return new ErrorResult(Messages.UserNotFound);
+            _userDal.SetOkumaBolumIds(userId, bolumIds ?? new List<int>());
+            return new SuccessResult("Görevli personelin bölümleri güncellendi.");
+        }
+
         public IDataResult<List<int>> GetBolumIds(int userId)
         {
             try

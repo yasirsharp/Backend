@@ -190,6 +190,7 @@ gösterimi için Excel dosyaları `docs/sunum-excel/` klasöründedir.
 
 | Belirti | Çözüm |
 |---|---|
+| Güncelleme/silme çalışmıyor, tarayıcıda **405 Method Not Allowed** | IIS'in WebDAV modülü PUT/DELETE isteklerini engelliyor. `web.config`'te `<handlers>` satırının hemen üstüne `<modules><remove name="WebDAVModule" /></modules>`, `<handlers>` içine ilk satır olarak `<remove name="WebDAV" />` ekleyin (bkz. `deploy/web.plesk.config`). |
 | **500.19** | web.config okunamıyor: ASP.NET Core Hosting Bundle kurulu değil (adım 1). |
 | **500.30 / 502.5** (uygulama başlamadı) | `web.config`'te `stdoutLogEnabled="true"` yapın, sayfayı yenileyin, `logs\stdout_*.log` dosyasını okuyun. Sonra tekrar `false` yapın. Mesaj genelde yer tutucu, veritabanı bağlantısı veya güvenlik anahtarıyla ilgilidir. |
 | "yer tutucu var" hatası | `web.config`'te büyük harfli bir değer doldurulmamış. |

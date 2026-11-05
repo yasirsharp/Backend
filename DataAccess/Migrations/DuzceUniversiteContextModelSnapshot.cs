@@ -759,6 +759,37 @@ namespace DataAccess.Migrations
                     b.ToTable("DerslikBolum");
                 });
 
+            modelBuilder.Entity("Entity.Concrete.KullaniciBolum", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BolumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "BolumId")
+                        .IsUnique();
+
+                    b.ToTable("KullaniciBolum");
+                });
+
             modelBuilder.Entity("Entity.Concrete.Notification", b =>
                 {
                     b.Property<int>("Id")
@@ -870,6 +901,89 @@ namespace DataAccess.Migrations
                         .IsUnique();
 
                     b.ToTable("Ogrenci");
+                });
+
+            modelBuilder.Entity("Entity.Concrete.SinavDegisiklikTalebi", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BolumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Durum")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Gorev")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Neden")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<TimeOnly?>("OnerilenBaslangic")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly?>("OnerilenBitis")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime?>("OnerilenTarih")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SinavDetayId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SinavOzeti")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<bool>("Status")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TalepEdenAd")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("TalepEdenUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("YanitNotu")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("YanitTarihi")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("YanitlayanAd")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("YanitlayanUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TalepEdenUserId");
+
+                    b.HasIndex("BolumId", "Durum");
+
+                    b.ToTable("SinavDegisiklikTalepleri");
                 });
 
             modelBuilder.Entity("Entity.Concrete.SinavDerslik", b =>

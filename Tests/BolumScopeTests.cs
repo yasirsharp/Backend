@@ -55,11 +55,44 @@ namespace Tests
         }
 
         [Fact]
-        public void Other_personel_is_not_bolum_scoped()
+        public void Akademik_personel_sees_only_own_tasks()
         {
-            // Akademik/görevli personelin yazma yetkisi rollerle (Planlayici) zaten kapalı; okuma süzgeci uygulanmaz
-            Assert.False(AkademikPersonel.IsScoped);
-            Assert.True(AkademikPersonel.CanAccess(3));
+            Assert.True(AkademikPersonel.IsScoped);
+            Assert.True(AkademikPersonel.OwnTasksOnly);
+            Assert.False(AkademikPersonel.CanAccess(3));
+            Assert.False(AkademikPersonel.CanSee(new List<int>()));   // ortak tanımları da listelemez
+            Assert.False(AkademikPersonel.CanManage(new List<int> { 3 }));
+        }
+
+        [Fact]
+        public void Gorevli_personel_reads_assigned_bolums_but_never_writes()
+        {
+            var gp = new BolumScopeRules(false, Array.Empty<int>(), new[] { 2, 3 }, isPersonel: true, isGorevliPersonel: true);
+            Assert.False(gp.OwnTasksOnly);
+            Assert.True(gp.CanAccess(2));
+            Assert.True(gp.CanAccess(3));
+            Assert.False(gp.CanAccess(1));
+            Assert.False(gp.CanWrite(2));
+            Assert.False(gp.CanManage(new List<int> { 2 }));
+        }
+
+        [Fact]
+        public void Gorevli_personel_without_bolum_sees_nothing()
+        {
+            var gp = new BolumScopeRules(false, Array.Empty<int>(), Array.Empty<int>(), isPersonel: true, isGorevliPersonel: true);
+            Assert.False(gp.OwnTasksOnly);
+            Assert.False(gp.CanAccess(1));
+        }
+
+        [Fact]
+        public void Gorevli_and_gorevli_personel_write_only_where_gorevli()
+        {
+            // Bölüm 1'in görevlisi, bölüm 2'nin görevli personeli: 2'yi görür ama değiştiremez
+            var both = new BolumScopeRules(false, new[] { 1 }, new[] { 2 }, isPersonel: true, isBolumGorevlisi: true, isGorevliPersonel: true);
+            Assert.True(both.CanAccess(2));
+            Assert.False(both.CanWrite(2));
+            Assert.True(both.CanWrite(1));
+            Assert.False(both.CanManage(new List<int> { 1, 2 }));
         }
     }
 }

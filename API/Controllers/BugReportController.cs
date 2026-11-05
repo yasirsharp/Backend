@@ -31,6 +31,10 @@ namespace API.Controllers
             _mailer = mailer;
         }
 
+        /// <summary>Süper yönetici kişi olarak girmişse kaydı kimin adına yaptığı görünsün</summary>
+        private string ActAs() =>
+            User.FindFirst(Business.Concrete.AuthManager.ActAsByNameClaim)?.Value is { } by ? $" ({by} adına)" : "";
+
         public class CreateForm
         {
             public string? Description { get; set; }
@@ -65,7 +69,7 @@ namespace API.Controllers
             var report = new BugReport
             {
                 UserId = userId.Value,
-                UserName = string.Join(" · ", new[] { name, email }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                UserName = string.Join(" · ", new[] { name, email }.Where(x => !string.IsNullOrWhiteSpace(x))) + ActAs(),
                 Roles = string.Join(", ", User.ClaimRoles() ?? new List<string>()),
                 Description = form.Description ?? "",
                 PageUrl = form.PageUrl ?? "",
@@ -106,7 +110,7 @@ namespace API.Controllers
             var report = new BugReport
             {
                 UserId = userId.Value,
-                UserName = string.Join(" · ", new[] { name, email }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                UserName = string.Join(" · ", new[] { name, email }.Where(x => !string.IsNullOrWhiteSpace(x))) + ActAs(),
                 Roles = string.Join(", ", User.ClaimRoles() ?? new List<string>()),
                 Description = $"Sayfa hatası ({kind}): {message}",
                 PageUrl = BugReportRules.Clip((dto.PageUrl ?? "").Split('?', '#')[0], 500),

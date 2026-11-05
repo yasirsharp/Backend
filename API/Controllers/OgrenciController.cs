@@ -35,7 +35,7 @@ namespace API.Controllers
         /// Tüm öğrencileri getirir
         /// </summary>
         [HttpGet]
-        [Authorize(Roles = Roles.Planlayici)] // Kişisel veri: yönetici tümünü, bölüm görevlisi kendi bölümünü görür
+        [Authorize(Roles = Roles.Planlayici + "," + Roles.GorevliPersonel)] // Kişisel veri: yönetici tümünü, bölüm görevlisi ve görevli personel kendi bölümünü görür
         public IActionResult GetAll()
         {
             var result = _ogrenciService.GetList();
@@ -55,7 +55,7 @@ namespace API.Controllers
         /// <param name="sortOrder">Sıralama yönü (asc, desc)</param>
         /// <param name="searchTerm">Arama terimi (ad, soyad, öğrenci no)</param>
         [HttpGet("paged")]
-        [Authorize(Roles = Roles.Planlayici)] // Kişisel veri: yönetici tümünü, bölüm görevlisi kendi bölümünü görür
+        [Authorize(Roles = Roles.Planlayici + "," + Roles.GorevliPersonel)] // Kişisel veri: yönetici tümünü, bölüm görevlisi ve görevli personel kendi bölümünü görür
         public IActionResult GetPaged(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
@@ -84,7 +84,7 @@ namespace API.Controllers
         /// ID'ye göre öğrenci getirir
         /// </summary>
         [HttpGet("{id}")]
-        [Authorize(Roles = Roles.Planlayici)] // Kişisel veri: yönetici tümünü, bölüm görevlisi kendi bölümünü görür
+        [Authorize(Roles = Roles.Planlayici + "," + Roles.GorevliPersonel)] // Kişisel veri: yönetici tümünü, bölüm görevlisi ve görevli personel kendi bölümünü görür
         public IActionResult GetById(int id)
         {
             var result = _ogrenciService.GetById(id);
@@ -118,7 +118,7 @@ namespace API.Controllers
         /// Öğrenci numarasına göre öğrenci getirir
         /// </summary>
         [HttpGet("by-ogrenci-no/{ogrenciNo}")]
-        [Authorize(Roles = Roles.Planlayici)] // Kişisel veri: yönetici tümünü, bölüm görevlisi kendi bölümünü görür
+        [Authorize(Roles = Roles.Planlayici + "," + Roles.GorevliPersonel)] // Kişisel veri: yönetici tümünü, bölüm görevlisi ve görevli personel kendi bölümünü görür
         public IActionResult GetByOgrenciNo(string ogrenciNo)
         {
             var result = _ogrenciService.GetByOgrenciNo(ogrenciNo);

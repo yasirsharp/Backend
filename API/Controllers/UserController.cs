@@ -169,6 +169,20 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
+        /// <summary>Görevli personelin bilgi görebileceği bölümler</summary>
+        [HttpGet("{id}/okuma-bolumleri")]
+        [Authorize(Roles = Roles.Yonetici)]
+        public IActionResult GetOkumaBolumleri(int id) => Ok(_userService.GetOkumaBolumIds(id));
+
+        /// <summary>Görevli personele bölüm atar (birden çok olabilir; boş liste tümünü kaldırır)</summary>
+        [HttpPut("{id}/okuma-bolumleri")]
+        [Authorize(Roles = Roles.Yonetici)]
+        public IActionResult SetOkumaBolumleri(int id, [FromBody] List<int> bolumIds)
+        {
+            var result = _userService.SetOkumaBolumIds(id, bolumIds);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
         [HttpGet("bolumids/{userId}")]
         [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetBolumIds(int userId)

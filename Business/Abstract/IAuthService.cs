@@ -13,6 +13,11 @@ namespace Business.Abstract
         IDataResult<User> Login(UserForLoginDto userForLoginDto);
         IResult UserExists(string email);
         IDataResult<AccessToken> CreateAccessToken(User user);
+        /// <summary>
+        /// Süper yöneticinin "bu kullanıcı olarak gir" token'ı: hedefin kendi rolleri ve bölümleriyle, ayrıca
+        /// act_as_by (süper yöneticinin Id'si) ve act_as_by_name claim'leriyle. Parola değiştirme zorunluluğu taşımaz.
+        /// </summary>
+        IDataResult<AccessToken> CreateImpersonationToken(User target, User actor);
 
         /// <summary>Mevcut parolayı doğrular, yeni parolayı kaydeder ve "parola değiştirilmeli" işaretini kaldırır.</summary>
         IDataResult<User> ChangePassword(int userId, ChangePasswordDto dto);

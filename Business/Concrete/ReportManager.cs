@@ -50,7 +50,7 @@ namespace Business.Concrete
         /// Resmi sınav takvimi raporu oluştur
         /// QuestPDF ile profesyonel PDF render
         /// </summary>
-        public IDataResult<byte[]> GenerateOfficialSinavReport(DateTime startDate, DateTime endDate, int[] bolumIds)
+        public IDataResult<byte[]> GenerateOfficialSinavReport(DateTime startDate, DateTime endDate, int[] bolumIds, Func<SinavDetayDTO, bool>? filter = null)
         {
             try
             {
@@ -60,11 +60,8 @@ namespace Business.Concrete
                 // Sınav verilerini al
                 var sinavlar = _sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate);
 
-                // Bölüm filtresi uygula
-                if (bolumIds != null && bolumIds.Length > 0)
-                {
-                    sinavlar = sinavlar.Where(s => bolumIds.Contains(s.BolumId)).ToList();
-                }
+                // Bölüm ve kişi (akademik personelin kendi görevleri) filtresi
+                sinavlar = FilterBolum(sinavlar, bolumIds, filter);
 
                 if (sinavlar.Count == 0)
                 {
@@ -238,14 +235,17 @@ namespace Business.Concrete
         /// Gözetmen görevlendirme raporu: her gözetmenin görevleri tarih sırasıyla (gözetmene göre gruplu).
         /// </summary>
         /// <summary>Bölüm verilmişse yalnızca o bölümlerin sınavları</summary>
-        private static List<T> FilterBolum<T>(List<T> sinavlar, int[] bolumIds) where T : Entity.DTOs.SinavDetayDTO =>
-            bolumIds == null || bolumIds.Length == 0 ? sinavlar : sinavlar.Where(s => bolumIds.Contains(s.BolumId)).ToList();
+        private static List<SinavDetayDTO> FilterBolum(List<SinavDetayDTO> sinavlar, int[] bolumIds, Func<SinavDetayDTO, bool>? filter = null)
+        {
+            var list = bolumIds == null || bolumIds.Length == 0 ? sinavlar : sinavlar.Where(s => bolumIds.Contains(s.BolumId)).ToList();
+            return filter == null ? list : list.Where(filter).ToList();
+        }
 
-        public IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate, int[] bolumIds = null)
+        public IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate, int[] bolumIds = null, Func<SinavDetayDTO, bool>? filter = null)
         {
             try
             {
-                var sinavlar = FilterBolum(_sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate), bolumIds);
+                var sinavlar = FilterBolum(_sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate), bolumIds, filter);
                 var derslikAdlari = _derslikDal.GetAll().ToDictionary(d => d.Id, d => d.Ad);
 
                 var gorevler = sinavlar
@@ -293,11 +293,11 @@ namespace Business.Concrete
         /// <summary>
         /// Derslik kullanım raporu: her derslikte yapılan sınavlar (dersliğe göre gruplu) ve toplam kullanım süresi.
         /// </summary>
-        public IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate, int[] bolumIds = null)
+        public IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate, int[] bolumIds = null, Func<SinavDetayDTO, bool>? filter = null)
         {
             try
             {
-                var sinavlar = FilterBolum(_sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate), bolumIds);
+                var sinavlar = FilterBolum(_sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate), bolumIds, filter);
                 var derslikler = _derslikDal.GetAll().ToDictionary(d => d.Id);
 
                 var kullanimlar = sinavlar

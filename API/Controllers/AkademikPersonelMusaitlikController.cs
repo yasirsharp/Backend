@@ -99,6 +99,8 @@ namespace API.Controllers
         public IActionResult GetById(int id)
         {
             var result = _musaitlikService.GetById(id);
+            if (result.Success && result.Data != null && !CanReadPersonel(result.Data.AkademikPersonelId))
+                return Forbid();
             if (result.Success)
                 return Ok(result);
             return NotFound(result);
@@ -114,6 +116,8 @@ namespace API.Controllers
         [HttpGet("personel/{personelId}")]
         public async Task<IActionResult> GetByPersonelId(int personelId)
         {
+            if (!CanReadPersonel(personelId))
+                return Forbid();
             var result = await _musaitlikService.GetByPersonelIdAsync(personelId);
             if (result.Success)
                 return Ok(result);
@@ -126,6 +130,8 @@ namespace API.Controllers
         [HttpGet("takvim/{personelId}/{yil}/{ay}")]
         public async Task<IActionResult> GetTakvim(int personelId, int yil, int ay)
         {
+            if (!CanReadPersonel(personelId))
+                return Forbid();
             if (ay < 1 || ay > 12)
                 return BadRequest(new { Success = false, Message = "Ay 1-12 arasında olmalıdır." });
 
@@ -144,6 +150,8 @@ namespace API.Controllers
             [FromQuery] DateTime baslangic,
             [FromQuery] DateTime bitis)
         {
+            if (!CanReadPersonel(personelId))
+                return Forbid();
             if (baslangic > bitis)
                 return BadRequest(new { Success = false, Message = "Başlangıç tarihi bitiş tarihinden sonra olamaz." });
 
@@ -161,6 +169,7 @@ namespace API.Controllers
         /// Belirli tarih ve saatte müsait olan personelleri getirir
         /// </summary>
         [HttpGet("musait-personeller")]
+        [Authorize(Roles = Roles.Planlayici + "," + Roles.GorevliPersonel)] // Akademik personel yalnızca kendi müsaitliğini görür
         public async Task<IActionResult> GetMusaitPersoneller(
             [FromQuery] DateTime tarih,
             [FromQuery] string? baslangicSaati = null,
@@ -185,6 +194,7 @@ namespace API.Controllers
         /// Belirli tarih ve saatte meşgul olan personel ID'lerini getirir
         /// </summary>
         [HttpGet("mesgul-personeller")]
+        [Authorize(Roles = Roles.Planlayici + "," + Roles.GorevliPersonel)] // Akademik personel yalnızca kendi müsaitliğini görür
         public async Task<IActionResult> GetMesgulPersoneller(
             [FromQuery] DateTime tarih,
             [FromQuery] string? baslangicSaati = null,
@@ -215,6 +225,8 @@ namespace API.Controllers
             [FromQuery] string? baslangicSaati = null,
             [FromQuery] string? bitisSaati = null)
         {
+            if (!CanReadPersonel(personelId))
+                return Forbid();
             TimeSpan? baslangic = null;
             TimeSpan? bitis = null;
 
@@ -255,6 +267,21 @@ namespace API.Controllers
             if (userId == null)
                 return false;
 
+            var personel = _akademikPersonelService.GetByUserId(userId.Value);
+            return personel.Success && personel.Data != null && personel.Data.Id == akademikPersonelId;
+        }
+
+        /// <summary>
+        /// Okuma: yönetici, bölüm görevlisi ve görevli personel herkesinkini (gözetmen seçimi); akademik personel yalnızca
+        /// kendisininkini görür.
+        /// </summary>
+        private bool CanReadPersonel(int akademikPersonelId)
+        {
+            if (User.IsInAnyRole(Roles.Planlayici + "," + Roles.GorevliPersonel))
+                return true;
+            var userId = User.GetUserId();
+            if (userId == null)
+                return false;
             var personel = _akademikPersonelService.GetByUserId(userId.Value);
             return personel.Success && personel.Data != null && personel.Data.Id == akademikPersonelId;
         }

@@ -256,7 +256,7 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public async Task<IActionResult> Add(SinavKayitDTO sinavKayitDTO)
         {
-            if (_scope.IsScoped && !(BolumScope.BolumOfDbap(sinavKayitDTO.DersBolumAkademikPersonelId) is { } bolum && _scope.CanAccess(bolum)))
+            if (_scope.IsScoped && !(BolumScope.BolumOfDbap(sinavKayitDTO.DersBolumAkademikPersonelId) is { } bolum && _scope.CanWrite(bolum)))
                 return OwnBolumOnly();
             var result = await _sinavDetayService.Add(sinavKayitDTO);
             if (result.Success)
@@ -270,8 +270,8 @@ namespace API.Controllers
         {
             // Hem sınavın şimdiki hem yeni ders atamasının bölümü kendi bölümü olmalı
             if (_scope.IsScoped &&
-                !(BolumScope.BolumOfSinav(sinavGuncelleDTO.Id) is { } eski && _scope.CanAccess(eski) &&
-                  BolumScope.BolumOfDbap(sinavGuncelleDTO.DersBolumAkademikPersonelId) is { } yeni && _scope.CanAccess(yeni)))
+                !(BolumScope.BolumOfSinav(sinavGuncelleDTO.Id) is { } eski && _scope.CanWrite(eski) &&
+                  BolumScope.BolumOfDbap(sinavGuncelleDTO.DersBolumAkademikPersonelId) is { } yeni && _scope.CanWrite(yeni)))
                 return OwnBolumOnly();
             var result = await _sinavDetayService.Update(sinavGuncelleDTO);
             if (result.Success)
@@ -283,7 +283,7 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
-            if (_scope.IsScoped && !(BolumScope.BolumOfSinav(id) is { } bolum && _scope.CanAccess(bolum)))
+            if (_scope.IsScoped && !(BolumScope.BolumOfSinav(id) is { } bolum && _scope.CanWrite(bolum)))
                 return OwnBolumOnly();
             var result = _sinavDetayService.Delete(new SinavDetay { Id = id });
             if (result.Success)

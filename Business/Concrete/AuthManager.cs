@@ -222,7 +222,27 @@ namespace Business.Concrete
             return new SuccessResult();
         }
 
-        public IDataResult<AccessToken> CreateAccessToken(User user)
+        public const string ActAsByClaim = "act_as_by";
+        public const string ActAsByNameClaim = "act_as_by_name";
+
+        public IDataResult<AccessToken> CreateImpersonationToken(User target, User actor)
+        {
+            // Hedef geçici parolalı olsa bile kişi olarak girilen oturum parola ekranına kilitlenmesin
+            var view = new User
+            {
+                Id = target.Id, FirstName = target.FirstName, LastName = target.LastName, Email = target.Email,
+                UserName = target.UserName, Status = target.Status, MustChangePassword = false,
+            };
+            return CreateAccessToken(view, new List<Claim>
+            {
+                new(ActAsByClaim, actor.Id.ToString()),
+                new(ActAsByNameClaim, $"{actor.FirstName} {actor.LastName}".Trim()),
+            });
+        }
+
+        public IDataResult<AccessToken> CreateAccessToken(User user) => CreateAccessToken(user, null);
+
+        private IDataResult<AccessToken> CreateAccessToken(User user, List<Claim>? extraClaims)
         {
             var claims = _userService.GetClaims(user).Data;
             List<Claim> bolumIdleri = new List<Claim>();
@@ -253,6 +273,17 @@ namespace Business.Concrete
                     }
                 }
             }
+
+            // Görevli personel: bilgi görebileceği bölümler (salt okunur; arayüz için)
+            if (claims != null && claims.Any(c => c.Name == Roles.GorevliPersonel))
+            {
+                var okuma = _userService.GetOkumaBolumIds(user.Id).Data ?? new List<int>();
+                for (int i = 0; i < okuma.Count; i++)
+                    bolumIdleri.Add(new Claim($"{i + 1}.OkumaBolumId", okuma[i].ToString()));
+            }
+
+            if (extraClaims != null)
+                bolumIdleri.AddRange(extraClaims);
 
             var accessToken = _tokenHelper.CreateToken(user, claims, bolumIdleri);
             return new SuccessDataResult<AccessToken>(accessToken, Messages.AccessTokenCreated);

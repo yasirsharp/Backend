@@ -16,16 +16,16 @@ namespace Business.Abstract
         /// <param name="endDate">Bitiş tarihi</param>
         /// <param name="bolumIds">Bölüm ID'leri (opsiyonel, boşsa tüm bölümler)</param>
         /// <returns>PDF byte array</returns>
-        IDataResult<byte[]> GenerateOfficialSinavReport(DateTime startDate, DateTime endDate, int[] bolumIds = null);
+        IDataResult<byte[]> GenerateOfficialSinavReport(DateTime startDate, DateTime endDate, int[] bolumIds = null, Func<Entity.DTOs.SinavDetayDTO, bool>? filter = null);
 
         /// <summary>
         /// Gözetmen atama raporu oluştur
         /// </summary>
-        IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate, int[] bolumIds = null);
+        IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate, int[] bolumIds = null, Func<Entity.DTOs.SinavDetayDTO, bool>? filter = null);
 
         /// <summary>
         /// Derslik kullanım raporu oluştur
         /// </summary>
-        IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate, int[] bolumIds = null);
+        IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate, int[] bolumIds = null, Func<Entity.DTOs.SinavDetayDTO, bool>? filter = null);
     }
 }

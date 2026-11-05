@@ -42,6 +42,12 @@ namespace DataAccess.Concrete.EntityFramework
         // Uygulama içinden gönderilen hata bildirimleri
         public DbSet<BugReport> BugReports { get; set; }
 
+        // Görevli personelin görebileceği bölümler
+        public DbSet<KullaniciBolum> KullaniciBolum { get; set; }
+
+        // Akademik personelin sınav değişiklik talepleri
+        public DbSet<SinavDegisiklikTalebi> SinavDegisiklikTalepleri { get; set; }
+
         /// <summary>
         /// Uygulama açılışında "ConnectionStrings:DefaultConnection" ayarından atanır.
         /// Bağlantı bilgisi (özellikle parola) koda veya repoya yazılmamalıdır; User Secrets ya da
@@ -195,6 +201,20 @@ namespace DataAccess.Concrete.EntityFramework
                 e.Property(x => x.TargetAudience).HasMaxLength(50).IsRequired();
             });
             modelBuilder.Entity<AnnouncementReadStatus>(e => e.HasIndex(x => new { x.AnnouncementId, x.UserId }).IsUnique());
+
+            modelBuilder.Entity<KullaniciBolum>(e => e.HasIndex(x => new { x.UserId, x.BolumId }).IsUnique());
+            modelBuilder.Entity<SinavDegisiklikTalebi>(e =>
+            {
+                e.Property(x => x.SinavOzeti).HasMaxLength(300).IsRequired();
+                e.Property(x => x.TalepEdenAd).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Gorev).HasMaxLength(30).IsRequired();
+                e.Property(x => x.Neden).HasMaxLength(1000).IsRequired();
+                e.Property(x => x.Durum).HasMaxLength(20).IsRequired();
+                e.Property(x => x.YanitNotu).HasMaxLength(1000);
+                e.Property(x => x.YanitlayanAd).HasMaxLength(200);
+                e.HasIndex(x => new { x.BolumId, x.Durum });
+                e.HasIndex(x => x.TalepEdenUserId);
+            });
 
             modelBuilder.Entity<BugReport>(e =>
             {

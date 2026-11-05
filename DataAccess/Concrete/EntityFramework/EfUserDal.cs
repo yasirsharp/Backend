@@ -13,6 +13,23 @@ namespace DataAccess.Concrete.EntityFramework
 {
     public class EfUserDal : EfEntityRepositoryBase<User, DuzceUniversiteContext>, IUserDal
     {
+        public List<int> GetOkumaBolumIds(int userId)
+        {
+            using var context = new DuzceUniversiteContext();
+            return context.KullaniciBolum.Where(x => x.UserId == userId).Select(x => x.BolumId).ToList();
+        }
+
+        public void SetOkumaBolumIds(int userId, IEnumerable<int> bolumIds)
+        {
+            using var context = new DuzceUniversiteContext();
+            var wanted = bolumIds.Distinct().ToHashSet();
+            var current = context.KullaniciBolum.Where(x => x.UserId == userId).ToList();
+            context.KullaniciBolum.RemoveRange(current.Where(x => !wanted.Contains(x.BolumId)));
+            foreach (var id in wanted.Where(id => current.All(c => c.BolumId != id)))
+                context.KullaniciBolum.Add(new KullaniciBolum { UserId = userId, BolumId = id, CreatedDate = DateTime.Now, Status = true });
+            context.SaveChanges();
+        }
+
         public List<int> GetBolumIds(int userId)
         {
             using (DuzceUniversiteContext context = new DuzceUniversiteContext())

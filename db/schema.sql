@@ -697,6 +697,84 @@ BEGIN
     VALUES (N'20261102113018_AutoBugReports', N'9.0.0');
 END;
 
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105165902_RollerTaleplerGorevliBolum'
+)
+BEGIN
+    CREATE TABLE [KullaniciBolum] (
+        [Id] int NOT NULL IDENTITY,
+        [UserId] int NOT NULL,
+        [BolumId] int NOT NULL,
+        [CreatedDate] datetime2 NOT NULL,
+        [UpdatedDate] datetime2 NULL,
+        [Status] bit NOT NULL,
+        CONSTRAINT [PK_KullaniciBolum] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105165902_RollerTaleplerGorevliBolum'
+)
+BEGIN
+    CREATE TABLE [SinavDegisiklikTalepleri] (
+        [Id] int NOT NULL IDENTITY,
+        [SinavDetayId] int NOT NULL,
+        [BolumId] int NOT NULL,
+        [SinavOzeti] nvarchar(300) NOT NULL,
+        [TalepEdenUserId] int NOT NULL,
+        [TalepEdenAd] nvarchar(200) NOT NULL,
+        [Gorev] nvarchar(30) NOT NULL,
+        [Neden] nvarchar(1000) NOT NULL,
+        [OnerilenTarih] datetime2 NULL,
+        [OnerilenBaslangic] time NULL,
+        [OnerilenBitis] time NULL,
+        [Durum] nvarchar(20) NOT NULL,
+        [YanitNotu] nvarchar(1000) NULL,
+        [YanitlayanUserId] int NULL,
+        [YanitlayanAd] nvarchar(200) NULL,
+        [YanitTarihi] datetime2 NULL,
+        [CreatedDate] datetime2 NOT NULL,
+        [UpdatedDate] datetime2 NULL,
+        [Status] bit NOT NULL,
+        CONSTRAINT [PK_SinavDegisiklikTalepleri] PRIMARY KEY ([Id])
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105165902_RollerTaleplerGorevliBolum'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_KullaniciBolum_UserId_BolumId] ON [KullaniciBolum] ([UserId], [BolumId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105165902_RollerTaleplerGorevliBolum'
+)
+BEGIN
+    CREATE INDEX [IX_SinavDegisiklikTalepleri_BolumId_Durum] ON [SinavDegisiklikTalepleri] ([BolumId], [Durum]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105165902_RollerTaleplerGorevliBolum'
+)
+BEGIN
+    CREATE INDEX [IX_SinavDegisiklikTalepleri_TalepEdenUserId] ON [SinavDegisiklikTalepleri] ([TalepEdenUserId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261105165902_RollerTaleplerGorevliBolum'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20261105165902_RollerTaleplerGorevliBolum', N'9.0.0');
+END;
+
 COMMIT;
 GO
 

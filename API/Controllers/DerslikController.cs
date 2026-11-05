@@ -72,8 +72,9 @@ namespace API.Controllers
             var result = _derslikService.GetAllWithBolumler();
             if (!result.Success)
                 return BadRequest(result);
-            // Görevli: kendi bölümlerinin derslikleri + ortak derslikler
-            if (_scope.IsScoped)
+            // Görevli ve görevli personel: kendi bölümlerinin derslikleri + ortak derslikler.
+            // Akademik personel kendi sınavlarının derslik adlarını görebilsin diye listenin tamamını alır (kişisel veri yok).
+            if (_scope.IsScoped && !_scope.OwnTasksOnly)
                 return Ok(new Core.Utilities.Results.SuccessDataResult<List<DerslikWithBolumlerDTO>>(
                     result.Data.Where(d => _scope.CanSee(d.Bolumler.Select(b => b.BolumId).ToList())).ToList(), result.Message));
             return Ok(result);
