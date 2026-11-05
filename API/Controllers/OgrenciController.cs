@@ -6,6 +6,8 @@ using Core.Extensions;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using Entity.DTOs;
+using API.Security;
+using Core.Utilities.Results;
 
 namespace API.Controllers
 {
@@ -19,20 +21,26 @@ namespace API.Controllers
     public class OgrenciController : ControllerBase
     {
         private readonly IOgrenciService _ogrenciService;
+        private readonly BolumScope _scope;
 
-        public OgrenciController(IOgrenciService ogrenciService)
+        public OgrenciController(IOgrenciService ogrenciService, BolumScope scope)
         {
             _ogrenciService = ogrenciService;
+            _scope = scope;
         }
+
+        private IActionResult OwnBolumOnly() => StatusCode(StatusCodes.Status403Forbidden, new ErrorResult(BolumScope.OwnBolumOnly));
 
         /// <summary>
         /// Tüm öğrencileri getirir
         /// </summary>
         [HttpGet]
-        [Authorize(Roles = Roles.Personel)]
+        [Authorize(Roles = Roles.Planlayici)] // Kişisel veri: yönetici tümünü, bölüm görevlisi kendi bölümünü görür
         public IActionResult GetAll()
         {
             var result = _ogrenciService.GetList();
+            if (result.Success && _scope.IsScoped)
+                return Ok(new SuccessDataResult<List<Ogrenci>>(result.Data.Where(o => _scope.CanAccess(o.BolumId)).ToList(), result.Message));
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
@@ -47,7 +55,7 @@ namespace API.Controllers
         /// <param name="sortOrder">Sıralama yönü (asc, desc)</param>
         /// <param name="searchTerm">Arama terimi (ad, soyad, öğrenci no)</param>
         [HttpGet("paged")]
-        [Authorize(Roles = Roles.Personel)]
+        [Authorize(Roles = Roles.Planlayici)] // Kişisel veri: yönetici tümünü, bölüm görevlisi kendi bölümünü görür
         public IActionResult GetPaged(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
@@ -55,6 +63,8 @@ namespace API.Controllers
             [FromQuery] string sortOrder = "asc",
             [FromQuery] string? searchTerm = null)
         {
+            if (_scope.IsScoped)
+                return OwnBolumOnly();
             var paginationParams = new PaginationParams
             {
                 PageNumber = pageNumber,
@@ -74,10 +84,12 @@ namespace API.Controllers
         /// ID'ye göre öğrenci getirir
         /// </summary>
         [HttpGet("{id}")]
-        [Authorize(Roles = Roles.Personel)]
+        [Authorize(Roles = Roles.Planlayici)] // Kişisel veri: yönetici tümünü, bölüm görevlisi kendi bölümünü görür
         public IActionResult GetById(int id)
         {
             var result = _ogrenciService.GetById(id);
+            if (result.Success && !_scope.CanAccess(result.Data.BolumId))
+                return OwnBolumOnly();
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
@@ -90,11 +102,13 @@ namespace API.Controllers
         [HttpGet("by-user-id/{userId}")]
         public IActionResult GetByUserId(int userId)
         {
-            // Öğrenci sadece kendi kaydını görebilir; personel herkesinkini görebilir
-            if (User.GetUserId() != userId && !User.IsInAnyRole(Roles.Personel))
+            // Öğrenci sadece kendi kaydını görebilir; yönetici herkesinkini, bölüm görevlisi kendi bölümününkini
+            if (User.GetUserId() != userId && !User.IsInAnyRole(Roles.Planlayici))
                 return Forbid();
 
             var result = _ogrenciService.GetByUserId(userId);
+            if (result.Success && result.Data != null && User.GetUserId() != userId && !_scope.CanAccess(result.Data.BolumId))
+                return OwnBolumOnly();
             if (result.Success)
                 return Ok(result);
             return NotFound(result);
@@ -104,10 +118,12 @@ namespace API.Controllers
         /// Öğrenci numarasına göre öğrenci getirir
         /// </summary>
         [HttpGet("by-ogrenci-no/{ogrenciNo}")]
-        [Authorize(Roles = Roles.Personel)]
+        [Authorize(Roles = Roles.Planlayici)] // Kişisel veri: yönetici tümünü, bölüm görevlisi kendi bölümünü görür
         public IActionResult GetByOgrenciNo(string ogrenciNo)
         {
             var result = _ogrenciService.GetByOgrenciNo(ogrenciNo);
+            if (result.Success && !_scope.CanAccess(result.Data.BolumId))
+                return OwnBolumOnly();
             if (result.Success)
                 return Ok(result);
             return NotFound(result);

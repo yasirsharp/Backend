@@ -237,11 +237,15 @@ namespace Business.Concrete
         /// <summary>
         /// Gözetmen görevlendirme raporu: her gözetmenin görevleri tarih sırasıyla (gözetmene göre gruplu).
         /// </summary>
-        public IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate)
+        /// <summary>Bölüm verilmişse yalnızca o bölümlerin sınavları</summary>
+        private static List<T> FilterBolum<T>(List<T> sinavlar, int[] bolumIds) where T : Entity.DTOs.SinavDetayDTO =>
+            bolumIds == null || bolumIds.Length == 0 ? sinavlar : sinavlar.Where(s => bolumIds.Contains(s.BolumId)).ToList();
+
+        public IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate, int[] bolumIds = null)
         {
             try
             {
-                var sinavlar = _sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate);
+                var sinavlar = FilterBolum(_sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate), bolumIds);
                 var derslikAdlari = _derslikDal.GetAll().ToDictionary(d => d.Id, d => d.Ad);
 
                 var gorevler = sinavlar
@@ -289,11 +293,11 @@ namespace Business.Concrete
         /// <summary>
         /// Derslik kullanım raporu: her derslikte yapılan sınavlar (dersliğe göre gruplu) ve toplam kullanım süresi.
         /// </summary>
-        public IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate)
+        public IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate, int[] bolumIds = null)
         {
             try
             {
-                var sinavlar = _sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate);
+                var sinavlar = FilterBolum(_sinavDetayDal.GetSinavDetailsByDateRange(startDate, endDate), bolumIds);
                 var derslikler = _derslikDal.GetAll().ToDictionary(d => d.Id);
 
                 var kullanimlar = sinavlar

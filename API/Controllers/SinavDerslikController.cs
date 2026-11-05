@@ -8,7 +8,11 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    /// <summary>
+    /// Ham sınav-derslik kayıtları. Çakışma ve müsaitlik kontrolü yapmadığı için yalnızca yönetici kullanabilir;
+    /// arayüz sınav derslik ve gözetmenlerini SinavDetay üzerinden (kontrollü) değiştirir.
+    /// </summary>
+    [Authorize(Roles = Roles.Yonetici)]
     public class SinavDerslikController : ControllerBase
     {
         private readonly ISinavDerslikService _sinavDerslikService;
@@ -64,7 +68,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = Roles.Planlayici)]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Add(SinavDerslik sinavDerslik)
         {
             var result = _sinavDerslikService.Add(sinavDerslik);
@@ -74,7 +78,7 @@ namespace API.Controllers
         }
 
         [HttpPut]
-        [Authorize(Roles = Roles.Planlayici)]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Update(SinavDerslik sinavDerslik)
         {
             var result = _sinavDerslikService.Update(sinavDerslik);
@@ -84,7 +88,7 @@ namespace API.Controllers
         }
 
         [HttpDelete]
-        [Authorize(Roles = Roles.Planlayici)]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Delete(SinavDerslik sinavDerslik)
         {
             var result = _sinavDerslikService.Delete(sinavDerslik);

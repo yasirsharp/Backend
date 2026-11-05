@@ -8,6 +8,7 @@ arayüz `API/wwwroot` içinden sunulur; arayüz ve API aynı adresten çalışı
 
 **Sunucuya kurulum (IIS + SQL Server):** [docs/KURULUM.md](docs/KURULUM.md) ·
 **Plesk (Windows) + MySQL test kurulumu:** [docs/PLESK_KURULUM.md](docs/PLESK_KURULUM.md) ·
+**Roller ve yetkiler (bölüm izolasyonu):** [docs/YETKILER.md](docs/YETKILER.md) ·
 **Test sitesine otomatik yükleme (GitHub Actions, FTP):** [docs/PLESK_KURULUM.md → Otomatik güncelleme](docs/PLESK_KURULUM.md#otomatik-güncelleme-github-actions)
 
 > `Frontend1/` eski MVC arayüzüdür ve artık kullanılmamaktadır.

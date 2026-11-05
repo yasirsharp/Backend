@@ -15,10 +15,27 @@ namespace API.Controllers
     public class ReportController : ControllerBase
     {
         private readonly IReportService _reportService;
+        private readonly API.Security.BolumScope _scope;
 
-        public ReportController(IReportService reportService)
+        public ReportController(IReportService reportService, API.Security.BolumScope scope)
         {
             _reportService = reportService;
+            _scope = scope;
+        }
+
+        private static int[] ParseBolumIds(string? bolumIds) =>
+            string.IsNullOrEmpty(bolumIds)
+                ? Array.Empty<int>()
+                : bolumIds.Split(',').Select(id => int.TryParse(id.Trim(), out var v) ? v : 0).Where(id => id > 0).ToArray();
+
+        /// <summary>Bölüm görevlisi yalnızca kendi bölümlerinin raporunu alır (istenmezse tüm kendi bölümleri)</summary>
+        private int[] ScopeBolumIds(int[] requested)
+        {
+            if (!_scope.IsScoped)
+                return requested;
+            var own = _scope.Rules.BolumIds;
+            var allowed = requested.Where(own.Contains).ToArray();
+            return allowed.Length > 0 ? allowed : own.Count > 0 ? own.ToArray() : new[] { -1 };
         }
 
         /// <summary>
@@ -34,15 +51,7 @@ namespace API.Controllers
             [FromQuery] DateTime endDate,
             [FromQuery] string? bolumIds = null)
         {
-            // Bölüm ID'lerini parse et
-            int[] bolumIdArray = null;
-            if (!string.IsNullOrEmpty(bolumIds))
-            {
-                bolumIdArray = bolumIds.Split(',')
-                    .Select(id => int.TryParse(id.Trim(), out int result) ? result : 0)
-                    .Where(id => id > 0)
-                    .ToArray();
-            }
+            var bolumIdArray = ScopeBolumIds(ParseBolumIds(bolumIds));
 
             // Öğrenci sadece kendi bölümünün takvimini alabilir (istediği bölümden bağımsız)
             if (!User.IsInAnyRole(Roles.Personel))
@@ -73,9 +82,10 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetGozetmenAssignmentReport(
             [FromQuery] DateTime startDate,
-            [FromQuery] DateTime endDate)
+            [FromQuery] DateTime endDate,
+            [FromQuery] string? bolumIds = null)
         {
-            var result = _reportService.GenerateGozetmenAssignmentReport(startDate, endDate);
+            var result = _reportService.GenerateGozetmenAssignmentReport(startDate, endDate, ScopeBolumIds(ParseBolumIds(bolumIds)));
 
             if (!result.Success)
             {
@@ -95,9 +105,10 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetDerslikUsageReport(
             [FromQuery] DateTime startDate,
-            [FromQuery] DateTime endDate)
+            [FromQuery] DateTime endDate,
+            [FromQuery] string? bolumIds = null)
         {
-            var result = _reportService.GenerateDerslikUsageReport(startDate, endDate);
+            var result = _reportService.GenerateDerslikUsageReport(startDate, endDate, ScopeBolumIds(ParseBolumIds(bolumIds)));
 
             if (!result.Success)
             {

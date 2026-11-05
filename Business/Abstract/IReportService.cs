@@ -21,11 +21,11 @@ namespace Business.Abstract
         /// <summary>
         /// Gözetmen atama raporu oluştur
         /// </summary>
-        IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate);
+        IDataResult<byte[]> GenerateGozetmenAssignmentReport(DateTime startDate, DateTime endDate, int[] bolumIds = null);
 
         /// <summary>
         /// Derslik kullanım raporu oluştur
         /// </summary>
-        IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate);
+        IDataResult<byte[]> GenerateDerslikUsageReport(DateTime startDate, DateTime endDate, int[] bolumIds = null);
     }
 }

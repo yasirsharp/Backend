@@ -6,6 +6,8 @@ using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using Entity.DTOs;
 
+using API.Security;
+
 namespace API.Controllers
 {
     [Route("api/[controller]")]
@@ -14,15 +16,22 @@ namespace API.Controllers
     public class DersController : ControllerBase
     {
         private readonly IDersService _dersService;
+        private readonly BolumScope _scope;
 
-        public DersController(IDersService dersService)
+        public DersController(IDersService dersService, BolumScope scope)
         {
             _dersService = dersService;
+            _scope = scope;
         }
+
+        private IActionResult OwnBolumOnly() => StatusCode(StatusCodes.Status403Forbidden, new Core.Utilities.Results.ErrorResult(BolumScope.OwnBolumOnly));
+        private IActionResult SharedAdminOnly() => StatusCode(StatusCodes.Status403Forbidden, new Core.Utilities.Results.ErrorResult(BolumScope.SharedAdminOnly));
 
         [HttpGet]
         public IActionResult GetAll()
         {
+            if (_scope.IsScoped)
+                return OwnBolumOnly();
             var result = _dersService.GetList();
             if (result.Success)
                 return Ok(result);
@@ -40,6 +49,8 @@ namespace API.Controllers
             [FromQuery] string sortOrder = "asc",
             [FromQuery] string? searchTerm = null)
         {
+            if (_scope.IsScoped)
+                return OwnBolumOnly();
             var paginationParams = new PaginationParams
             {
                 PageNumber = pageNumber,
@@ -58,6 +69,8 @@ namespace API.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumsOfDers(id) is { } bolumler && _scope.CanSee(bolumler)))
+                return OwnBolumOnly();
             var result = _dersService.GetById(id);
             if (result.Success)
                 return Ok(result);
@@ -70,6 +83,8 @@ namespace API.Controllers
         [HttpGet("bolum/{bolumId}")]
         public IActionResult GetByBolumId(int bolumId)
         {
+            if (!_scope.CanAccess(bolumId))
+                return OwnBolumOnly();
             // Bölüme ait tüm DBAP kayıtlarından ders ID'lerini çek
             // Bu işlem için service layer'da yeni metod gerekebilir
             // Şimdilik DersWithBolumler'i kullanabiliriz
@@ -92,6 +107,9 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Add(Ders ders)
         {
+            // Bölüm bilgisi taşımayan eski uç: yalnızca yönetici
+            if (_scope.IsScoped)
+                return SharedAdminOnly();
             var result = _dersService.Add(ders);
             if (result.Success)
                 return Created("", result);
@@ -102,6 +120,9 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Update(Ders ders)
         {
+            // Bölüm bilgisi taşımayan eski uç: yalnızca yönetici
+            if (_scope.IsScoped)
+                return SharedAdminOnly();
             var result = _dersService.Update(ders);
             if (result.Success)
                 return Ok(result);
@@ -112,6 +133,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumsOfDers(id) is { } bolumler && _scope.CanManage(bolumler)))
+                return SharedAdminOnly();
             var ders = _dersService.GetById(id);
             if (!ders.Success)
                 return NotFound(ders);
@@ -126,6 +149,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult AddWithBolumler(DersEkleDTO dersEkleDto)
         {
+            if (!_scope.CanManage(dersEkleDto.OrtakDers ? new List<int>() : dersEkleDto.BolumIds ?? new List<int>()))
+                return SharedAdminOnly();
             var result = _dersService.AddDersWithBolumler(dersEkleDto);
             if (result.Success)
                 return Created("", result);
@@ -136,6 +161,12 @@ namespace API.Controllers
         public IActionResult GetAllWithBolumler()
         {
             var result = _dersService.GetAllWithBolumler();
+            if (result.Success && _scope.IsScoped)
+            {
+                // Görevli: kendi bölümlerinin dersleri + ortak dersler
+                var list = result.Data.Where(d => _scope.CanSee(d.Bolumler.Select(b => b.BolumId).ToList())).ToList();
+                return Ok(new Core.Utilities.Results.SuccessDataResult<List<DersWithBolumlerDTO>>(list, result.Message));
+            }
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
@@ -145,6 +176,10 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult UpdateWithBolumler(DersGuncelleDTO dersGuncelleDto)
         {
+            // Hem şimdiki hem yeni bölümlerin hepsi kendi bölümü olmalı
+            if (_scope.IsScoped && !(BolumScope.BolumsOfDers(dersGuncelleDto.Id) is { } eski && _scope.CanManage(eski)
+                                     && _scope.CanManage(dersGuncelleDto.OrtakDers ? new List<int>() : dersGuncelleDto.BolumIds ?? new List<int>())))
+                return SharedAdminOnly();
             var result = _dersService.UpdateDersWithBolumler(dersGuncelleDto);
             if (result.Success)
                 return Ok(result);
@@ -167,6 +202,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult RemoveDersBolumMapping(int dersId, int bolumId)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumsOfDers(dersId) is { } bolumler && _scope.CanManage(bolumler)))
+                return SharedAdminOnly();
             var result = _dersService.RemoveDersBolumMapping(dersId, bolumId);
             if (result.Success)
                 return Ok(result);

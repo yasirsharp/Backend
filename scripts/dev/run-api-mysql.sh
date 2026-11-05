@@ -20,10 +20,13 @@ DB=sinav_takvimi
 ROOT_PW=Test_Sifre_2026
 APP_PW=Sinav_App_2026
 
-if ! docker info >/dev/null 2>&1; then
+# Docker kapalıysa aç; containerd ilk açılışta geç kalabildiği için bir kez yeniden denenir
+for attempt in 1 2; do
+  docker info >/dev/null 2>&1 && break
   (nohup dockerd >/tmp/dockerd.log 2>&1 &)
-  for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
-fi
+  for _ in $(seq 1 45); do docker info >/dev/null 2>&1 && break; sleep 1; done
+done
+docker info >/dev/null 2>&1 || { echo "Docker açılamadı: /tmp/dockerd.log"; exit 1; }
 if ! docker ps -a --format '{{.Names}}' | grep -qx mysql8; then
   docker run -d --name mysql8 -e MYSQL_ROOT_PASSWORD=$ROOT_PW -p 3306:3306 mysql:8.0 >/dev/null
 fi

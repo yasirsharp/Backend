@@ -178,6 +178,7 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddSingleton<API.Services.BugReportMailer>();
 builder.Services.AddSingleton<Core.Utilities.Reporting.IUnhandledExceptionReporter, API.Services.AutoBugReporter>();
 builder.Services.AddScoped<API.Controllers.AutomationKeyFilter>();
+builder.Services.AddScoped<API.Security.BolumScope>();
 
 builder.Host
     .UseServiceProviderFactory(new AutofacServiceProviderFactory())

@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
+using Entity.DTOs;
+using API.Security;
+using Core.Utilities.Results;
 
 namespace API.Controllers
 {
@@ -13,15 +16,21 @@ namespace API.Controllers
     public class DBAPController : ControllerBase
     {
         private readonly IDBAPService _dbapService;
+        private readonly BolumScope _scope;
 
-        public DBAPController(IDBAPService dbapService)
+        public DBAPController(IDBAPService dbapService, BolumScope scope)
         {
             _dbapService = dbapService;
+            _scope = scope;
         }
+
+        private IActionResult OwnBolumOnly() => StatusCode(StatusCodes.Status403Forbidden, new ErrorResult(BolumScope.OwnBolumOnly));
 
         [HttpGet]
         public IActionResult GetAll()
         {
+            if (_scope.IsScoped)
+                return OwnBolumOnly();
             var result = _dbapService.GetAll();
             if (result.Success)
                 return Ok(result);
@@ -32,6 +41,13 @@ namespace API.Controllers
         public IActionResult GetAllDetails()
         {
             var result = _dbapService.GetAllDetails();
+            if (result.Success && _scope.IsScoped)
+            {
+                // Görevli: kendi bölümlerinin atamaları + kendisinin verdiği dersler (başka bölümde de olsa)
+                var me = _scope.PersonelId;
+                var list = result.Data.Where(x => _scope.CanAccess(x.BolumId) || x.AkademikPersonelId == me).ToList();
+                return Ok(new SuccessDataResult<List<DersBolumAkademikPersonelDTO>>(list, result.Message));
+            }
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
@@ -45,6 +61,8 @@ namespace API.Controllers
             [FromQuery] string? sortOrder = null,
             [FromQuery] string? searchTerm = null)
         {
+            if (_scope.IsScoped)
+                return OwnBolumOnly();
             var paginationParams = new PaginationParams
             {
                 PageNumber = pageNumber,
@@ -63,6 +81,8 @@ namespace API.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumOfDbap(id) is { } bolum && _scope.CanAccess(bolum)))
+                return OwnBolumOnly();
             var result = _dbapService.GetById(id);
             if (result.Success)
                 return Ok(result);
@@ -72,6 +92,8 @@ namespace API.Controllers
         [HttpGet("detail/{id}")]
         public IActionResult GetDetail(int id)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumOfDbap(id) is { } bolum && _scope.CanAccess(bolum)))
+                return OwnBolumOnly();
             var result = _dbapService.GetDetail(id);
             if (result.Success)
                 return Ok(result);
@@ -81,6 +103,8 @@ namespace API.Controllers
         [HttpGet("bolum/{bolumId}")]
         public IActionResult GetByBolumId(int bolumId)
         {
+            if (!_scope.CanAccess(bolumId))
+                return OwnBolumOnly();
             var result = _dbapService.GetByBolumId(bolumId);
             if (result.Success)
                 return Ok(result);
@@ -90,6 +114,8 @@ namespace API.Controllers
         [HttpGet("bolum/details/{bolumId}")]
         public IActionResult GetDetailsByBolumId(int bolumId)
         {
+            if (!_scope.CanAccess(bolumId))
+                return OwnBolumOnly();
             var result = _dbapService.GetDetailsByBolumId(bolumId);
             if (result.Success)
                 return Ok(result);
@@ -100,6 +126,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Add(DersBolumAkademikPersonel dersBolumAkademikPersonel)
         {
+            if (!_scope.CanAccess(dersBolumAkademikPersonel.BolumId))
+                return OwnBolumOnly();
             var result = _dbapService.Add(dersBolumAkademikPersonel);
             if (result.Success)
                 return Created("", result);
@@ -110,6 +138,10 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Update(DersBolumAkademikPersonel dersBolumAkademikPersonel)
         {
+            // Hem şimdiki hem yeni bölüm kendi bölümü olmalı
+            if (_scope.IsScoped && !(BolumScope.BolumOfDbap(dersBolumAkademikPersonel.Id) is { } eski && _scope.CanAccess(eski)
+                                     && _scope.CanAccess(dersBolumAkademikPersonel.BolumId)))
+                return OwnBolumOnly();
             var result = _dbapService.Update(dersBolumAkademikPersonel);
             if (result.Success)
                 return Ok(result);
@@ -123,6 +155,8 @@ namespace API.Controllers
             var dbap = _dbapService.GetById(id).Data;
             if (dbap == null)
                 return NotFound(new { Success = false, Message = "DBAP kaydı bulunamadı" });
+            if (!_scope.CanAccess(dbap.BolumId))
+                return OwnBolumOnly();
 
             var result = _dbapService.Delete(dbap);
             if (result.Success)

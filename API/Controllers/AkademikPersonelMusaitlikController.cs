@@ -243,11 +243,12 @@ namespace API.Controllers
         #region Yetki Kontrolleri
 
         /// <summary>
-        /// Planlama rolleri tüm personelin müsaitliğini yönetebilir; akademik personel sadece kendisininkini.
+        /// Yönetici tüm personelin müsaitliğini yönetebilir; diğerleri (bölüm görevlisi dahil) sadece kendisininkini.
+        /// Görevli başkasının "müsait değilim" kaydını silip onu gözetmen yapamasın.
         /// </summary>
         private bool CanManagePersonel(int akademikPersonelId)
         {
-            if (User.IsInAnyRole(Roles.Planlayici))
+            if (User.IsInAnyRole(Roles.Yonetici))
                 return true;
 
             var userId = User.GetUserId();
@@ -260,13 +261,13 @@ namespace API.Controllers
 
         /// <summary>
         /// Var olan bir müsaitlik kaydının sahibini kontrol eder. Kayıt yoksa servis kendi hatasını döndürsün diye true döner
-        /// (sadece planlama rolleri için); diğer kullanıcılar için false.
+        /// (sadece yönetici için); diğer kullanıcılar için false.
         /// </summary>
         private bool CanManageRecord(int musaitlikId)
         {
             var record = _musaitlikService.GetById(musaitlikId);
             if (!record.Success || record.Data == null)
-                return User.IsInAnyRole(Roles.Planlayici);
+                return User.IsInAnyRole(Roles.Yonetici);
 
             return CanManagePersonel(record.Data.AkademikPersonelId);
         }

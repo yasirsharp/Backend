@@ -108,7 +108,8 @@ namespace API.Controllers
         /// Yeni bildirim oluşturur
         /// </summary>
         [HttpPost]
-        [Authorize(Roles = Roles.Planlayici)]
+        // Bildirimleri sistem üretir; elle bildirim (istenen kişiye, istenen bağlantıyla) yalnızca yönetici
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Add([FromBody] Notification notification)
         {
             var result = _notificationService.Add(notification);

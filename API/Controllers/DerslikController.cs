@@ -6,6 +6,8 @@ using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using Entity.DTOs;
 
+using API.Security;
+
 namespace API.Controllers
 {
     [Route("api/[controller]")]
@@ -14,15 +16,22 @@ namespace API.Controllers
     public class DerslikController : ControllerBase
     {
         private readonly IDerslikService _derslikService;
+        private readonly BolumScope _scope;
 
-        public DerslikController(IDerslikService derslikService)
+        public DerslikController(IDerslikService derslikService, BolumScope scope)
         {
             _derslikService = derslikService;
+            _scope = scope;
         }
+
+        private IActionResult OwnBolumOnly() => StatusCode(StatusCodes.Status403Forbidden, new Core.Utilities.Results.ErrorResult(BolumScope.OwnBolumOnly));
+        private IActionResult SharedAdminOnly() => StatusCode(StatusCodes.Status403Forbidden, new Core.Utilities.Results.ErrorResult(BolumScope.SharedAdminOnly));
 
         [HttpGet]
         public IActionResult GetAll()
         {
+            if (_scope.IsScoped)
+                return OwnBolumOnly();
             var result = _derslikService.GetList();
             if (result.Success)
                 return Ok(result);
@@ -40,6 +49,8 @@ namespace API.Controllers
             [FromQuery] string sortOrder = "asc",
             [FromQuery] string? searchTerm = null)
         {
+            if (_scope.IsScoped)
+                return OwnBolumOnly();
             var paginationParams = new PaginationParams
             {
                 PageNumber = pageNumber,
@@ -59,9 +70,13 @@ namespace API.Controllers
         public IActionResult GetAllWithBolumler()
         {
             var result = _derslikService.GetAllWithBolumler();
-            if (result.Success)
-                return Ok(result);
-            return BadRequest(result);
+            if (!result.Success)
+                return BadRequest(result);
+            // Görevli: kendi bölümlerinin derslikleri + ortak derslikler
+            if (_scope.IsScoped)
+                return Ok(new Core.Utilities.Results.SuccessDataResult<List<DerslikWithBolumlerDTO>>(
+                    result.Data.Where(d => _scope.CanSee(d.Bolumler.Select(b => b.BolumId).ToList())).ToList(), result.Message));
+            return Ok(result);
         }
 
         /// <summary>
@@ -75,6 +90,8 @@ namespace API.Controllers
             [FromQuery] string sortOrder = "asc",
             [FromQuery] string? searchTerm = null)
         {
+            if (_scope.IsScoped)
+                return OwnBolumOnly();
             var paginationParams = new PaginationParams
             {
                 PageNumber = pageNumber,
@@ -138,6 +155,8 @@ namespace API.Controllers
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumsOfDerslik(id) is { } bolumler && _scope.CanSee(bolumler)))
+                return OwnBolumOnly();
             var result = _derslikService.GetById(id);
             if (result.Success)
                 return Ok(result);
@@ -148,6 +167,9 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Add(Derslik derslik)
         {
+            // Bölüm bilgisi taşımayan eski uç: yalnızca yönetici
+            if (_scope.IsScoped)
+                return SharedAdminOnly();
             var result = _derslikService.Add(derslik);
             if (result.Success)
                 return Created("", result);
@@ -158,6 +180,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult AddWithBolumler([FromBody] DerslikEkleDTO derslikEkleDto)
         {
+            if (!_scope.CanManage(derslikEkleDto.OrtakDerslik ? new List<int>() : derslikEkleDto.BolumIds ?? new List<int>()))
+                return SharedAdminOnly();
             var result = _derslikService.AddDerslikWithBolumler(derslikEkleDto);
             if (result.Success)
                 return Created("", result);
@@ -168,6 +192,9 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Update(Derslik derslik)
         {
+            // Bölüm bilgisi taşımayan eski uç: yalnızca yönetici
+            if (_scope.IsScoped)
+                return SharedAdminOnly();
             var result = _derslikService.Update(derslik);
             if (result.Success)
                 return Ok(result);
@@ -178,6 +205,10 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult UpdateWithBolumler([FromBody] DerslikGuncelleDTO derslikGuncelleDto)
         {
+            // Hem şimdiki hem yeni bölümlerin hepsi kendi bölümü olmalı (ortak derslik yalnızca yönetici)
+            if (_scope.IsScoped && !(BolumScope.BolumsOfDerslik(derslikGuncelleDto.Id) is { } eski && _scope.CanManage(eski)
+                                     && _scope.CanManage(derslikGuncelleDto.OrtakDerslik ? new List<int>() : derslikGuncelleDto.BolumIds ?? new List<int>())))
+                return SharedAdminOnly();
             var result = _derslikService.UpdateDerslikWithBolumler(derslikGuncelleDto);
             if (result.Success)
                 return Ok(result);
@@ -188,6 +219,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumsOfDerslik(id) is { } bolumler && _scope.CanManage(bolumler)))
+                return SharedAdminOnly();
             var derslik = _derslikService.GetById(id).Data;
             if (derslik == null)
                 return NotFound(new { Success = false, Message = "Derslik bulunamadı" });
@@ -205,6 +238,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult RemoveFromBolum(int derslikId, int bolumId)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumsOfDerslik(derslikId) is { } bolumler && _scope.CanManage(bolumler)))
+                return SharedAdminOnly();
             var result = _derslikService.RemoveDerslikFromBolum(derslikId, bolumId);
             if (result.Success)
                 return Ok(result);
@@ -217,6 +252,8 @@ namespace API.Controllers
         [HttpGet("by-bolum/{bolumId}")]
         public IActionResult GetByBolumId(int bolumId)
         {
+            if (bolumId != 0 && !_scope.CanAccess(bolumId))
+                return OwnBolumOnly();
             var result = _derslikService.GetDersliklerByBolumId(bolumId);
             if (result.Success)
                 return Ok(result);
@@ -241,6 +278,8 @@ namespace API.Controllers
         [HttpGet("by-bolumler")]
         public IActionResult GetByBolumIds([FromQuery] int[] bolumIds)
         {
+            if (_scope.IsScoped)
+                bolumIds = bolumIds.Where(_scope.CanAccess).ToArray();
             var result = _derslikService.GetDersliklerByBolumIds(bolumIds);
             if (result.Success)
                 return Ok(result);

@@ -7,6 +7,7 @@ using Entity.Concrete;
 using Entity.DTOs;
 using Core.Extensions;
 using Core.Utilities.Results;
+using API.Security;
 
 namespace API.Controllers
 {
@@ -16,10 +17,30 @@ namespace API.Controllers
     public class SinavDetayController : ControllerBase
     {
         private readonly ISinavDetayService _sinavDetayService;
+        private readonly BolumScope _scope;
 
-        public SinavDetayController(ISinavDetayService sinavDetayService)
+        public SinavDetayController(ISinavDetayService sinavDetayService, BolumScope scope)
         {
             _sinavDetayService = sinavDetayService;
+            _scope = scope;
+        }
+
+        /// <summary>Bölüm görevlisi için kapsam dışı (eski/kullanılmayan) liste uçları kapalıdır</summary>
+        private IActionResult? ScopedListForbidden() =>
+            _scope.IsScoped ? StatusCode(StatusCodes.Status403Forbidden, new ErrorResult(BolumScope.OwnBolumOnly)) : null;
+
+        private IActionResult OwnBolumOnly() => StatusCode(StatusCodes.Status403Forbidden, new ErrorResult(BolumScope.OwnBolumOnly));
+
+        /// <summary>Görevli: kendi bölümlerinin sınavları + dersini verdiği veya gözetmen olduğu sınavlar</summary>
+        private List<SinavDetayDTO> Scope(List<SinavDetayDTO> list)
+        {
+            if (!_scope.IsScoped) return list;
+            var me = _scope.PersonelId;
+            var myDbaps = _scope.MyDbapIds();
+            return list.Where(s => _scope.CanAccess(s.BolumId)
+                                   || myDbaps.Contains(s.DersBolumAkademikPersonelId)
+                                   || (me != null && (s.Derslikler ?? new()).Any(d => d.GozetmenId == me)))
+                .ToList();
         }
 
         /// <summary>Öğrencinin token'ındaki bölüm (personel için null).</summary>
@@ -28,12 +49,14 @@ namespace API.Controllers
 
         /// <summary>Personel tüm bölümleri, öğrenci yalnızca kendi bölümünün sınavlarını görebilir.</summary>
         private bool CanSeeBolum(int bolumId) =>
-            User.IsInAnyRole(Roles.Personel) || StudentBolumId() == bolumId;
+            (User.IsInAnyRole(Roles.Personel) && _scope.CanAccess(bolumId)) || StudentBolumId() == bolumId;
 
         [HttpGet]
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetAll()
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetAll();
             if (result.Success)
                 return Ok(result);
@@ -49,6 +72,8 @@ namespace API.Controllers
             [FromQuery] string? sortOrder = null,
             [FromQuery] string? searchTerm = null)
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var paginationParams = new PaginationParams
             {
                 PageNumber = pageNumber,
@@ -68,6 +93,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetAllDetails()
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetAllDetails();
             if (result.Success)
                 return Ok(result);
@@ -79,6 +106,8 @@ namespace API.Controllers
         public IActionResult GetById(int id)
         {
             var result = _sinavDetayService.GetById(id);
+            if (result.Success && _scope.IsScoped && Scope(new List<SinavDetayDTO> { result.Data }).Count == 0)
+                return OwnBolumOnly();
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
@@ -99,6 +128,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetByDerslikId(int derslikId)
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetByDerslikId(derslikId);
             if (result.Success)
                 return Ok(result);
@@ -109,6 +140,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetByAkademikPersonelId(int akademikPersonelId)
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetByAkademikPersonelId(akademikPersonelId);
             if (result.Success)
                 return Ok(result);
@@ -120,6 +153,8 @@ namespace API.Controllers
         public IActionResult GetByDateRange([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
         {
             var result = _sinavDetayService.GetByDateRange(startDate, endDate);
+            if (result.Success && _scope.IsScoped)
+                return Ok(new SuccessDataResult<List<SinavDetayDTO>>(Scope(result.Data), result.Message));
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
@@ -144,6 +179,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetByDateRangeAndDerslik([FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] int derslikId)
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetByDateRangeAndDerslik(startDate, endDate, derslikId);
             if (result.Success)
                 return Ok(result);
@@ -154,6 +191,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetByDateRangeAndAkademikPersonel([FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] int akademikPersonelId)
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetByDateRangeAndAkademikPersonel(startDate, endDate, akademikPersonelId);
             if (result.Success)
                 return Ok(result);
@@ -181,6 +220,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetByDerslikler([FromQuery] int[] ids)
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetByDerslikler(ids);
             if (result.Success)
                 return Ok(result);
@@ -191,6 +232,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetByDersliklerAndBolum([FromQuery] int[] ids, [FromQuery] int bolumId)
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetByDersliklerAndBolum(ids, bolumId);
             if (result.Success)
                 return Ok(result);
@@ -201,6 +244,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Personel)]
         public IActionResult GetByDersliklerAndAkademikPersonel([FromQuery] int[] ids, [FromQuery] int akademikPersonelId)
         {
+            if (ScopedListForbidden() is { } forbidden)
+                return forbidden;
             var result = _sinavDetayService.GetByDersliklerAndAkademikPersonel(ids, akademikPersonelId);
             if (result.Success)
                 return Ok(result);
@@ -211,6 +256,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public async Task<IActionResult> Add(SinavKayitDTO sinavKayitDTO)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumOfDbap(sinavKayitDTO.DersBolumAkademikPersonelId) is { } bolum && _scope.CanAccess(bolum)))
+                return OwnBolumOnly();
             var result = await _sinavDetayService.Add(sinavKayitDTO);
             if (result.Success)
                 return Ok(result); // 200 OK (diğer endpoint'lerle tutarlı)
@@ -221,6 +268,11 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public async Task<IActionResult> Update(SinavGuncelleDTO sinavGuncelleDTO)
         {
+            // Hem sınavın şimdiki hem yeni ders atamasının bölümü kendi bölümü olmalı
+            if (_scope.IsScoped &&
+                !(BolumScope.BolumOfSinav(sinavGuncelleDTO.Id) is { } eski && _scope.CanAccess(eski) &&
+                  BolumScope.BolumOfDbap(sinavGuncelleDTO.DersBolumAkademikPersonelId) is { } yeni && _scope.CanAccess(yeni)))
+                return OwnBolumOnly();
             var result = await _sinavDetayService.Update(sinavGuncelleDTO);
             if (result.Success)
                 return Ok(result);
@@ -231,6 +283,8 @@ namespace API.Controllers
         [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
+            if (_scope.IsScoped && !(BolumScope.BolumOfSinav(id) is { } bolum && _scope.CanAccess(bolum)))
+                return OwnBolumOnly();
             var result = _sinavDetayService.Delete(new SinavDetay { Id = id });
             if (result.Success)
                 return Ok(result);

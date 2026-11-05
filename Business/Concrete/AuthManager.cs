@@ -239,8 +239,9 @@ namespace Business.Concrete
                     bolumIdleri.Add(new Claim("OgrenciNo", ogrenciResult.Data.OgrenciNo));
                 }
             }
-            // Bölüm görevlisi role kontrolü (mevcut logic)
-            else if (claims != null && claims.Any(c => c.Name == Roles.BolumGorevlisi))
+            // Bölüm görevlisi: görevli olduğu bölümler (öğrenci rolüyle birlikte de olabilir; arayüz için.
+            // Sunucu yetkiyi her istekte veritabanından kontrol eder, bu bilgi yalnızca gösterim içindir.)
+            if (claims != null && claims.Any(c => c.Name == Roles.BolumGorevlisi))
             {
                 var userBolums = _userService.GetBolumIds(user.Id).Data;
                 if (userBolums != null && userBolums.Count > 0)
