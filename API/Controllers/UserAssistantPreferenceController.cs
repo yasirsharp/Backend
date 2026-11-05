@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
+using Core.Extensions;
 using Entity.Concrete;
 
 namespace API.Controllers
@@ -27,6 +28,10 @@ namespace API.Controllers
         [HttpGet("{userId}")]
         public IActionResult GetPreference(int userId)
         {
+            // Kullanıcı sadece kendi tercihlerini görebilir/değiştirebilir
+            if (User.GetUserId() != userId)
+                return Forbid();
+
             var result = _preferenceService.GetPreference(userId);
             if (result.Success)
                 return Ok(result);
@@ -41,6 +46,10 @@ namespace API.Controllers
         [HttpPut("{userId}")]
         public IActionResult UpdatePreference(int userId, [FromBody] UpdatePreferenceDto dto)
         {
+            // Kullanıcı sadece kendi tercihlerini görebilir/değiştirebilir
+            if (User.GetUserId() != userId)
+                return Forbid();
+
             // Önce mevcut preference'ı al
             var existingResult = _preferenceService.GetPreference(userId);
             
@@ -72,6 +81,10 @@ namespace API.Controllers
         [HttpPut("{userId}/complete-onboarding")]
         public IActionResult CompleteOnboarding(int userId)
         {
+            // Kullanıcı sadece kendi tercihlerini görebilir/değiştirebilir
+            if (User.GetUserId() != userId)
+                return Forbid();
+
             var result = _preferenceService.CompleteOnboarding(userId);
             if (result.Success)
                 return Ok(result);
@@ -86,6 +99,10 @@ namespace API.Controllers
         [HttpPut("{userId}/toggle")]
         public IActionResult ToggleBot(int userId, [FromBody] ToggleBotDto dto)
         {
+            // Kullanıcı sadece kendi tercihlerini görebilir/değiştirebilir
+            if (User.GetUserId() != userId)
+                return Forbid();
+
             var result = _preferenceService.ToggleBot(userId, dto.IsEnabled);
             if (result.Success)
                 return Ok(result);

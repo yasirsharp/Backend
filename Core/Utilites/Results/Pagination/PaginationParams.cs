@@ -13,7 +13,13 @@ namespace Core.Utilites.Results.Pagination
         /// <summary>
         /// Sayfa numarası (1'den başlar)
         /// </summary>
-        public int PageNumber { get; set; } = 1;
+        private int _pageNumber = 1;
+
+        public int PageNumber
+        {
+            get => _pageNumber;
+            set => _pageNumber = value < 1 ? 1 : value;
+        }
 
         /// <summary>
         /// Sayfa başına kayıt sayısı
@@ -21,7 +27,7 @@ namespace Core.Utilites.Results.Pagination
         public int PageSize
         {
             get => _pageSize;
-            set => _pageSize = (value > MaxPageSize) ? MaxPageSize : value;
+            set => _pageSize = value < 1 ? 1 : (value > MaxPageSize ? MaxPageSize : value);
         }
 
         /// <summary>

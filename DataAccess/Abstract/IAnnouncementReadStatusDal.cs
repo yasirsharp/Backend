@@ -12,5 +12,7 @@ namespace DataAccess.Abstract
         void Add(AnnouncementReadStatus readStatus);
         AnnouncementReadStatus Get(int announcementId, int userId);
         bool Exists(int announcementId, int userId);
+        /// <summary>Kullanıcının okuduğu duyuruların ID'leri</summary>
+        List<int> GetReadAnnouncementIds(int userId);
     }
 }

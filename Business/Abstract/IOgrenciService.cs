@@ -1,53 +1,33 @@
 using Core.Utilities.Results;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
+using Entity.DTOs;
 
 namespace Business.Abstract
 {
     /// <summary>
-    /// Ogrenci Service Interface
-    /// Öğrenci business logic operasyonları için interface
+    /// Öğrenci işlemleri. Öğrenci eklemek her zaman bir kullanıcı hesabı (geçici parolalı) açar.
     /// </summary>
     public interface IOgrenciService
     {
-        /// <summary>
-        /// Tüm öğrencileri döndürür
-        /// </summary>
         IDataResult<List<Ogrenci>> GetList();
 
-        /// <summary>
-        /// ID'ye göre öğrenci getirir
-        /// </summary>
         IDataResult<Ogrenci> GetById(int ogrenciId);
 
-        /// <summary>
-        /// UserId'ye göre öğrenci getirir (1-to-1 relationship)
-        /// </summary>
         IDataResult<Ogrenci> GetByUserId(int userId);
 
-        /// <summary>
-        /// Öğrenci numarasına göre öğrenci getirir
-        /// </summary>
         IDataResult<Ogrenci> GetByOgrenciNo(string ogrenciNo);
 
-        /// <summary>
-        /// Yeni öğrenci ekler
-        /// </summary>
-        IResult Add(Ogrenci ogrenci);
-
-        /// <summary>
-        /// Öğrenci siler
-        /// </summary>
-        IResult Delete(Ogrenci ogrenci);
-
-        /// <summary>
-        /// Öğrenci günceller
-        /// </summary>
-        IResult Update(Ogrenci ogrenci);
-
-        /// <summary>
-        /// Sayfalanmış, sıralanmış ve filtrelenmiş öğrenci listesi döner
-        /// </summary>
         IDataResult<PagedResult<Ogrenci>> GetPagedList(PaginationParams paginationParams);
+
+        /// <summary>Öğrenci, kullanıcı hesabı ve "ogrenci" rolünü tek transaction içinde oluşturur.</summary>
+        Task<IDataResult<CreatedAccountDto>> CreateAsync(OgrenciCreateDto dto, string? password = null);
+
+        /// <summary>Her satır ayrı kaydedilir; hatalı satırlar diğerlerini etkilemez.</summary>
+        Task<IDataResult<BulkResultDto>> BulkCreateAsync(List<OgrenciCreateDto> rows);
+
+        Task<IResult> UpdateAsync(OgrenciUpdateDto dto);
+
+        Task<IResult> DeleteAsync(int ogrenciId);
     }
 }

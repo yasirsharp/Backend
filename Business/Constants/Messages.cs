@@ -42,12 +42,13 @@ namespace Business.Constants
         public static string OgrenciNotFound = "Öğrenci bulunamadı.";
 
 
-        public static string SomethingWrong = "Bir şeyler yanlış gidiyor. @?!!#";
+        public static string SomethingWrong = "İşlem sırasında beklenmeyen bir hata oluştu.";
 
         public static string SinavDetayAdded = "Sinav Detay Eşleştirmesi eklendi.";
         public static string SinavDetayDeleted = "Sinav Detay Eşleştirmesi silindi.";
         public static string SinavDetayUpdated = "Sinav Detay Eşleştirmesi güncellendi.";
         public static string SinavDetayNotFound = "Sınav kaydı bulunamadı.";
+        public static string SinavCakisma = "Derslik, gözetmen veya akademik personel için çakışan bir sınav bulunmaktadır. Lütfen kontrol ediniz.";
 
         public static string SinavDerslikAdded = "Sinav Derslik Eşleştirmesi eklendi.";
         public static string SinavDerslikDeleted = "Sinav Derslik Eşleştirmesi silindi.";
@@ -63,6 +64,10 @@ namespace Business.Constants
         public static string SuccessfulLogin = "Giriş başarılı.";
         public static string UserRegistered = "Kullanıcı başarıyla kaydedildi.";
         public static string PasswordError = "Şifre hatalı.";
+        public static string InvalidCredentials = "E-posta/kullanıcı adı veya şifre hatalı.";
+        public static string UserInactive = "Hesabınız pasif durumdadır. Lütfen yönetici ile iletişime geçin.";
+        public static string UserNameAlreadyExists = "Bu kullanıcı adı ile kayıtlı bir kullanıcı zaten mevcut.";
+        public static string AccessDenied = "Bu işlem için yetkiniz yok.";
 
         public static string OperationClaimAdded = "Yetki başarıyla eklendi.";
         public static string OperationClaimUpdated = "Yetki başarıyla güncellendi.";

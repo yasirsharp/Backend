@@ -22,28 +22,31 @@ namespace DataAccess.Concrete.EntityFramework
         public async Task AddWithUserAsync(
             User user,
             AkademikPersonel akademikPersonel,
-            UserOperationClaim userOperationClaim)
+            string roleName)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            // Kendi context'i: toplu eklemede hatalı bir satır, istek boyunca paylaşılan context'te kalıp
+            // sonraki satırların kaydını bozmasın.
+            await using var context = new DuzceUniversiteContext();
+            await using var transaction = await context.Database.BeginTransactionAsync();
+
+            var roleId = await context.GetRoleIdAsync(roleName);
+
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            akademikPersonel.UserId = user.Id;
+            context.AkademikPersonel.Add(akademikPersonel);
+
+            context.UserOperationClaims.Add(new UserOperationClaim
             {
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
+                UserId = user.Id,
+                OperationClaimId = roleId,
+                CreatedDate = DateTime.Now,
+                Status = true
+            });
 
-                akademikPersonel.UserId = user.Id;
-                _context.AkademikPersonel.Add(akademikPersonel);
-
-                userOperationClaim.UserId = user.Id;
-                _context.UserOperationClaims.Add(userOperationClaim);
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
 
         public async Task UpdateWithUserAsync(

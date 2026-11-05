@@ -13,6 +13,12 @@ namespace Core.Entities.Concrete
         public byte[] PasswordSalt { get; set; }
         public bool Status { get; set; }
 
+        /// <summary>
+        /// Yönetici tarafından açılan veya parolası sıfırlanan hesaplarda true olur.
+        /// Kullanıcı parolasını değiştirene kadar sadece parola değiştirme ucunu kullanabilir.
+        /// </summary>
+        public bool MustChangePassword { get; set; }
+
         // Audit Alanları (IEntity'den gelir)
         public DateTime CreatedDate { get; set; }
         public DateTime? UpdatedDate { get; set; }

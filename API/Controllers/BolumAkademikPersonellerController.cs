@@ -2,11 +2,14 @@
 using Entity.Concrete;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 
 namespace API.Controllers
 {
     [Route("api/bolumakademikpersoneller")]
     [ApiController]
+    [Authorize]
     public class BolumAkademikPersonellerController : ControllerBase
     {
         private IBolumAkademikPersonellerService _bolumAkademikPersonellerService;
@@ -35,6 +38,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Add(BolumAkademikPersoneller bolumAkademikPersoneller)
         {
             var result = _bolumAkademikPersonellerService.Add(bolumAkademikPersoneller);
@@ -44,6 +48,7 @@ namespace API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Update(BolumAkademikPersoneller bolumAkademikPersoneller)
         {
             var result = _bolumAkademikPersonellerService.Update(bolumAkademikPersoneller);
@@ -53,6 +58,7 @@ namespace API.Controllers
         }
 
         [HttpDelete]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult Delete(BolumAkademikPersoneller bolumAkademikPersoneller)
         {
             var result = _bolumAkademikPersonellerService.Delete(bolumAkademikPersoneller);

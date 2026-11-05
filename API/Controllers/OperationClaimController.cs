@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Business.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
 using Core.Entities.Concrete;
 
@@ -6,6 +8,7 @@ namespace API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = Roles.Yonetici)]
     public class OperationClaimController : ControllerBase
     {
         private readonly IOperationClaimService _operationClaimService;
@@ -34,6 +37,7 @@ namespace API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.SuperAdmin)]
         public IActionResult Add(OperationClaim operationClaim)
         {
             var result = _operationClaimService.Add(operationClaim);
@@ -43,6 +47,7 @@ namespace API.Controllers
         }
 
         [HttpPut]
+        [Authorize(Roles = Roles.SuperAdmin)]
         public IActionResult Update(OperationClaim operationClaim)
         {
             var result = _operationClaimService.Update(operationClaim);
@@ -52,6 +57,7 @@ namespace API.Controllers
         }
 
         [HttpDelete]
+        [Authorize(Roles = Roles.SuperAdmin)]
         public IActionResult Delete(OperationClaim operationClaim)
         {
             var result = _operationClaimService.Delete(operationClaim);

@@ -85,7 +85,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<DersBolumAkademikPersonelDTO>(err.Message);
+                return new ErrorDataResult<DersBolumAkademikPersonelDTO>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -101,7 +101,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<DersBolumAkademikPersonel>>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<List<DersBolumAkademikPersonel>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -116,7 +116,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<DersBolumAkademikPersonelDTO>>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<List<DersBolumAkademikPersonelDTO>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -145,7 +145,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<DersBolumAkademikPersonelDTO>>(Messages.SomethingWrong + " " + err.Message);
+                return new ErrorDataResult<List<DersBolumAkademikPersonelDTO>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -229,7 +229,7 @@ namespace Business.Concrete
             catch (Exception err)
             {
                 return new ErrorDataResult<PagedResult<DersBolumAkademikPersonelDTO>>(
-                    Messages.SomethingWrong + " " + err.Message
+                    ExceptionLogger.Log(err, Messages.SomethingWrong)
                 );
             }
         }

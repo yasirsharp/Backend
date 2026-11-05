@@ -68,6 +68,9 @@ namespace Business.DependecyResolvers.Autofac
             // Notification ve Announcement servisleri
             builder.RegisterType<NotificationManager>().As<INotificationService>();
             builder.RegisterType<EfNotificationDal>().As<INotificationDal>();
+
+            builder.RegisterType<BugReportManager>().As<IBugReportService>();
+            builder.RegisterType<EfBugReportDal>().As<IBugReportDal>();
             
             builder.RegisterType<AnnouncementManager>().As<IAnnouncementService>();
             builder.RegisterType<EfAnnouncementDal>().As<IAnnouncementDal>();
@@ -87,15 +90,19 @@ namespace Business.DependecyResolvers.Autofac
             builder.RegisterType<AkademikPersonelMusaitlikManager>().As<IAkademikPersonelMusaitlikService>();
             builder.RegisterType<EfAkademikPersonelMusaitlikDal>().As<IAkademikPersonelMusaitlikDal>();
 
-            builder.RegisterType<DuzceUniversiteContext>();
+            // DbContext thread-safe değildir: her HTTP isteği kendi context'ini alır ve istek sonunda dispose edilir.
+            builder.RegisterType<DuzceUniversiteContext>().InstancePerLifetimeScope();
 
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
 
+            // Manager'lar daha önce SingleInstance idi; bu, constructor'dan DbContext alan DAL'ları
+            // (EfAkademikPersonelDal, EfAkademikPersonelMusaitlikDal) tüm isteklerde tek bir context'i
+            // paylaşmaya zorluyordu. İstek başına ömür (lifetime scope) ile bu sorun giderildi.
             builder.RegisterAssemblyTypes(assembly).AsImplementedInterfaces()
                 .EnableInterfaceInterceptors(new ProxyGenerationOptions()
                 {
                     Selector = new AspectInterceptorSelector()
-                }).SingleInstance();
+                }).InstancePerLifetimeScope();
 
         }
     }

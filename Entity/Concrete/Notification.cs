@@ -38,12 +38,12 @@ namespace Entity.Concrete
         /// <summary>
         /// Tıklanınca gidilecek URL (opsiyonel)
         /// </summary>
-        public string ActionUrl { get; set; }
+        public string? ActionUrl { get; set; }
         
         /// <summary>
         /// İlgili entity tipi (SinavDetay, Ders, Bolum, vb.) - Opsiyonel
         /// </summary>
-        public string RelatedEntityType { get; set; }
+        public string? RelatedEntityType { get; set; }
         
         /// <summary>
         /// İlgili entity'nin ID'si - Opsiyonel

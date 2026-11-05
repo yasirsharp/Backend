@@ -30,7 +30,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorResult(err.Message);
+                return new ErrorResult(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -44,7 +44,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorResult(err.Message);
+                return new ErrorResult(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -57,7 +57,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<SinavDerslik>(err.Message);
+                return new ErrorDataResult<SinavDerslik>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -70,7 +70,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<SinavDerslik>>(err.Message);
+                return new ErrorDataResult<List<SinavDerslik>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -83,7 +83,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<SinavDetay>>(err.Message);
+                return new ErrorDataResult<List<SinavDetay>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -96,7 +96,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<SinavDetay>>(err.Message);
+                return new ErrorDataResult<List<SinavDetay>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -109,7 +109,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorDataResult<List<SinavDerslik>>(err.Message);
+                return new ErrorDataResult<List<SinavDerslik>>(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 
@@ -123,7 +123,7 @@ namespace Business.Concrete
             }
             catch (Exception err)
             {
-                return new ErrorResult(err.Message);
+                return new ErrorResult(ExceptionLogger.Log(err, Messages.SomethingWrong));
             }
         }
 

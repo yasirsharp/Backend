@@ -7,10 +7,11 @@ namespace DataAccess.Abstract
 {
     public interface IAkademikPersonelDal : IEntityRepository<AkademikPersonel>
     {
+        /// <summary>Kullanıcı, personel kaydı ve rolü tek transaction içinde ekler.</summary>
         Task AddWithUserAsync(
             User user,
             AkademikPersonel akademikPersonel,
-            UserOperationClaim userOperationClaim);
+            string roleName);
 
         Task UpdateWithUserAsync(
             User user,

@@ -44,7 +44,7 @@ namespace Entity.Concrete
         /// <summary>
         /// Navigation property - Hedef Bölüm
         /// </summary>
-        public virtual Bolum TargetBolum { get; set; }
+        public virtual Bolum? TargetBolum { get; set; }
         
         /// <summary>
         /// Duyuru yayınlanma tarihi

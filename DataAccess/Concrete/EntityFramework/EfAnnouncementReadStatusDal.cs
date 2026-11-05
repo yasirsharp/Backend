@@ -28,6 +28,12 @@ namespace DataAccess.Concrete.EntityFramework
             }
         }
 
+        public List<int> GetReadAnnouncementIds(int userId)
+        {
+            using var context = new DuzceUniversiteContext();
+            return context.AnnouncementReadStatus.Where(x => x.UserId == userId).Select(x => x.AnnouncementId).ToList();
+        }
+
         public bool Exists(int announcementId, int userId)
         {
             using (DuzceUniversiteContext context = new DuzceUniversiteContext())

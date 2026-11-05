@@ -1,4 +1,4 @@
-﻿using Core.Entities.Concrete;
+using Core.Entities.Concrete;
 using Core.Extensions;
 using Core.Utilities.Security.Encryption;
 using Microsoft.Extensions.Configuration;
@@ -26,7 +26,7 @@ namespace Core.Utilities.Security.JWT
         }
         public AccessToken CreateToken(User user, List<OperationClaim> operationClaims, List<Claim> bolumIdleri)
         {
-            _accessTokenExpiration = DateTime.Now.AddMinutes(_tokenOptions.AccessTokenExpiration);
+            _accessTokenExpiration = DateTime.UtcNow.AddMinutes(_tokenOptions.AccessTokenExpiration);
             var securityKey = SecurityKeyHelper.CreateSecurityKey(_tokenOptions.SecurityKey);
             var signingCredentials = SigningCredentialsHelper.CreateSigningCredentials(securityKey);
             var jwt = CreateJwtSecurityToken(_tokenOptions, user, signingCredentials, operationClaims, bolumIdleri);
@@ -44,54 +44,28 @@ namespace Core.Utilities.Security.JWT
         public JwtSecurityToken CreateJwtSecurityToken(TokenOptions tokenOptions, User user,
             SigningCredentials signingCredentials, List<OperationClaim> operationClaims, List<Claim> bolumIdleri)
         {
+            return new JwtSecurityToken(
+                issuer: tokenOptions.Issuer,
+                audience: tokenOptions.Audience,
+                expires: _accessTokenExpiration,
+                notBefore: DateTime.UtcNow,
+                claims: SetClaims(user, operationClaims, bolumIdleri),
+                signingCredentials: signingCredentials
+            );
+        }
+
+        private static IEnumerable<Claim> SetClaims(User user, List<OperationClaim> operationClaims, List<Claim> bolumIdleri)
+        {
+            var claims = new List<Claim>();
+            claims.AddNameIdentifier(user.Id.ToString());
+            claims.AddEmail(user.Email);
+            claims.AddName($"{user.FirstName} {user.LastName}");
+            if (user.MustChangePassword)
+                claims.Add(new Claim(CustomClaimTypes.PasswordChangeRequired, "true"));
             if (bolumIdleri != null)
-            {
-                var jwt = new JwtSecurityToken(
-                    issuer: tokenOptions.Issuer,
-                    audience: tokenOptions.Audience,
-                    expires: _accessTokenExpiration,
-                    notBefore: DateTime.Now,
-                    claims: SetClaims(user, operationClaims, bolumIdleri),
-                    signingCredentials: signingCredentials
-                );
-
-                return jwt;
-            }
-            else
-            {
-                var jwt = new JwtSecurityToken(
-                    issuer: tokenOptions.Issuer,
-                    audience: tokenOptions.Audience,
-                    expires: _accessTokenExpiration,
-                    notBefore: DateTime.Now,
-                    claims: SetClaims(user, operationClaims),
-                    signingCredentials: signingCredentials
-                );
-                return jwt;
-            }
-        }
-
-        private IEnumerable<Claim> SetClaims(User user, List<OperationClaim> operationClaims, List<Claim> bolumIdleri)
-        {
-            var claims = new List<Claim>();
-            claims.AddNameIdentifier(user.Id.ToString());
-            claims.AddEmail(user.Email);
-            claims.AddName($"{user.FirstName} {user.LastName}");
-            if (operationClaims != null && bolumIdleri != null)
-            {
                 claims.AddRange(bolumIdleri);
+            if (operationClaims != null)
                 claims.AddRoles(operationClaims.Select(c => c.Name).ToArray());
-            }
-            return claims;
-        }
-        private IEnumerable<Claim> SetClaims(User user, List<OperationClaim> operationClaims)
-        {
-            var claims = new List<Claim>();
-            claims.AddNameIdentifier(user.Id.ToString());
-            claims.AddEmail(user.Email);
-            claims.AddName($"{user.FirstName} {user.LastName}");
-            if (operationClaims != null) claims.AddRoles(operationClaims.Select(c => c.Name).ToArray());
-
             return claims;
         }
     }

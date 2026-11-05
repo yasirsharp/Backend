@@ -34,7 +34,7 @@ namespace Business.Concrete
             var dbap = _dBAPDal.GetDetails(q => q.BolumId == bolum.Id);
             if (dbap.Count > 0)
             {
-                string message = $"{bolum.Ad} dersi için {dbap.Count} tane Bölüm-Ders-Akademik Personel Eşleştirmesi bulunmaktadır.\n";
+                string message = $"{bolum.Ad} bölümü için {dbap.Count} tane Bölüm-Ders-Akademik Personel Eşleştirmesi bulunmaktadır.\n";
                 foreach (var item in dbap)
                 {
                     message += $"{item.BolumAd} {item.DersAd} {item.AkademikPersonelAd} {item.Unvan}\n";

@@ -85,9 +85,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[BolumAkademikPersonel] ❌ HATA: {ex.Message}");
-                Console.WriteLine($"[BolumAkademikPersonel] Stack Trace: {ex.StackTrace}");
-                return new ErrorResult($"Atama işlemi sırasında bir hata oluştu: {ex.Message}");
+                return new ErrorResult(ExceptionLogger.Log(ex, "Atama işlemi sırasında bir hata oluştu."));
             }
         }
 
@@ -133,7 +131,7 @@ namespace Business.Concrete
             }
             catch (Exception ex)
             {
-                return new ErrorResult($"Silme işlemi sırasında bir hata oluştu: {ex.Message}");
+                return new ErrorResult(ExceptionLogger.Log(ex, "Silme işlemi sırasında bir hata oluştu."));
             }
         }
 

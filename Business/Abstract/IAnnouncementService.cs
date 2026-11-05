@@ -33,7 +33,6 @@ namespace Business.Abstract
         /// <summary>
         /// 🆕 Kullanıcı için geçerli duyuruları getirir (rol ve bölüm kontrolü ile)
         /// </summary>
-        IDataResult<List<Announcement>> GetByUserId(string targetAudience, int? userBolumId);
 
         /// <summary>
         /// Popup olarak gösterilecek duyuruları getirir
@@ -43,18 +42,26 @@ namespace Business.Abstract
         /// <summary>
         /// 🆕 Popup duyuruları getir (bölüm kontrolü ile)
         /// </summary>
-        IDataResult<List<Announcement>> GetPopupAnnouncementsByUser(string targetAudience, int? userBolumId);
 
         /// <summary>
         /// Yeni duyuru ekler
         /// </summary>
+        /// <summary>
+        /// Kullanıcının görebileceği yayındaki duyurular: hedef kitlelerinden biri (veya "all") ve
+        /// bölümsüz ya da kullanıcının bölümlerinden birine yönelik. popupOnly: okunmamış açılır duyurular.
+        /// </summary>
+        IDataResult<List<Announcement>> GetForUser(IReadOnlyCollection<string> audiences, IReadOnlyCollection<int> bolumIds,
+            int userId, bool popupOnly);
+
+        /// <summary>Başlık, içerik, tür, hedef kitle ve tarihleri doğrular.</summary>
+        IResult Validate(Announcement announcement);
+
         IResult Add(Announcement announcement);
         
         /// <summary>
         /// 🆕 Yeni duyuru ekle (yetki kontrolü ile)
         /// Görevli Personel sadece kendi bölümüne duyuru gönderebilir
         /// </summary>
-        IResult AddWithPermission(Announcement announcement, string userRole, int? userBolumId);
 
         /// <summary>
         /// Duyuru günceller

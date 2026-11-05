@@ -1,18 +1,29 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
+using Business.Constants;
+using Core.Extensions;
+using Core.Utilities.Results;
 using Core.Utilites.Results.Pagination;
 using Entity.Concrete;
 using Entity.DTOs;
-using System.Security.Claims; // 🆕 Token claims için
-using System.Linq; // 🆕
+using System.Text.RegularExpressions;
 
 namespace API.Controllers
 {
+    /// <summary>
+    /// Duyurular.
+    /// - Yönetici her duyuruyu yönetir.
+    /// - Bölüm görevlisi sadece kendi bölüm(ler)ine duyuru yayınlar ve yalnızca bu duyuruları düzenler/siler.
+    /// - Her kullanıcı, rollerinden hesaplanan hedef kitlelere ve bölümlerine yönelik duyuruları görür.
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AnnouncementController : ControllerBase
     {
+        private static readonly Regex BolumClaim = new(@"^(\d+\.)?BolumId$", RegexOptions.Compiled);
+
         private readonly IAnnouncementService _announcementService;
 
         public AnnouncementController(IAnnouncementService announcementService)
@@ -20,11 +31,47 @@ namespace API.Controllers
             _announcementService = announcementService;
         }
 
-        /// <summary>
-        /// Tüm duyuruları getirir (Admin için)
-        /// </summary>
+        /// <summary>Kullanıcının tüm rollerinden hedef kitleleri.</summary>
+        private List<string> MyAudiences()
+        {
+            var audiences = new List<string> { AnnouncementAudiences.All };
+            if (User.IsInRole(Roles.Ogrenci)) audiences.Add(AnnouncementAudiences.Ogrenci);
+            if (User.IsInAnyRole(Roles.Personel)) audiences.Add(AnnouncementAudiences.Personel);
+            if (User.IsInAnyRole(Roles.Yonetici)) audiences.Add(AnnouncementAudiences.Yonetici);
+            return audiences;
+        }
+
+        /// <summary>Token'daki bölümler: öğrenci için "BolumId", bölüm görevlisi için "1.BolumId", "2.BolumId"...</summary>
+        private List<int> MyBolumIds() =>
+            User.Claims
+                .Where(c => BolumClaim.IsMatch(c.Type))
+                .Select(c => int.TryParse(c.Value, out var id) ? id : 0)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+        private bool IsYonetici => User.IsInAnyRole(Roles.Yonetici);
+
+        /// <summary>Yönetici her duyuruyu; bölüm görevlisi kendi bölümüne yönelik veya kendi oluşturduğu duyuruyu yönetir.</summary>
+        private bool CanManage(Announcement announcement) =>
+            IsYonetici ||
+            (announcement.TargetBolumId.HasValue && MyBolumIds().Contains(announcement.TargetBolumId.Value));
+
+        /// <summary>Bölüm görevlisi sadece kendi bölümlerinden birini hedefleyebilir.</summary>
+        private string? CheckTarget(int? targetBolumId)
+        {
+            if (IsYonetici)
+                return null;
+            if (targetBolumId == null)
+                return "Bölüm görevlisi tüm bölümlere duyuru gönderemez; kendi bölümünüzü seçin.";
+            if (!MyBolumIds().Contains(targetBolumId.Value))
+                return "Sadece kendi bölümünüze duyuru gönderebilirsiniz.";
+            return null;
+        }
+
+        /// <summary>Tüm duyurular (yönetici).</summary>
         [HttpGet]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetAll()
         {
             var result = _announcementService.GetList();
@@ -34,10 +81,23 @@ namespace API.Controllers
         }
 
         /// <summary>
-        /// Sayfalanmış duyuru listesi
+        /// Yönetim ekranı listesi: yönetici için tümü, bölüm görevlisi için kendi bölümlerine yönelik duyurular.
         /// </summary>
+        [HttpGet("manage")]
+        [Authorize(Roles = Roles.Planlayici)]
+        public IActionResult GetManageable()
+        {
+            var result = _announcementService.GetList();
+            if (!result.Success)
+                return BadRequest(result);
+
+            var list = result.Data.Where(CanManage).ToList();
+            return Ok(new SuccessDataResult<List<Announcement>>(list, $"{list.Count} duyuru bulundu."));
+        }
+
+        /// <summary>Sayfalanmış duyuru listesi (yönetici).</summary>
         [HttpGet("paged")]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetPaged(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
@@ -60,23 +120,37 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        /// <summary>
-        /// ID'ye göre duyuru getirir
-        /// </summary>
-        [HttpGet("{id}")]
-        [Authorize]
-        public IActionResult GetById(int id)
+        /// <summary>Kullanıcının görebileceği yayındaki duyurular (rol ve bölüm kontrolü ile).</summary>
+        [HttpGet("my-announcements")]
+        public IActionResult GetMyAnnouncements()
         {
-            var result = _announcementService.GetById(id);
+            var userId = User.GetUserId();
+            if (userId == null)
+                return Unauthorized();
+
+            var result = _announcementService.GetForUser(MyAudiences(), MyBolumIds(), userId.Value, popupOnly: false);
             if (result.Success)
                 return Ok(result);
-            return NotFound(result);
+            return BadRequest(result);
         }
 
-        /// <summary>
-        /// Aktif duyuruları getirir (herkes için)
-        /// </summary>
+        /// <summary>Girişte açılır pencerede gösterilecek, henüz okunmamış duyurular.</summary>
+        [HttpGet("my-popup")]
+        public IActionResult GetMyPopup()
+        {
+            var userId = User.GetUserId();
+            if (userId == null)
+                return Unauthorized();
+
+            var result = _announcementService.GetForUser(MyAudiences(), MyBolumIds(), userId.Value, popupOnly: true);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>Yayındaki tüm duyurular (yönetici; hedef kitle ayrımı yapılmaz).</summary>
         [HttpGet("active")]
+        [Authorize(Roles = Roles.Yonetici)]
         public IActionResult GetActive()
         {
             var result = _announcementService.GetActiveAnnouncements();
@@ -85,125 +159,32 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        /// <summary>
-        /// 🆕 Kullanıcı için geçerli duyuruları getirir (rol ve bölüm kontrolü ile)
-        /// Token'dan rol ve BolumId alınır
-        /// </summary>
-        [HttpGet("my-announcements")]
-        [Authorize]
-        public IActionResult GetMyAnnouncements()
+        [HttpGet("{id}")]
+        [Authorize(Roles = Roles.Planlayici)]
+        public IActionResult GetById(int id)
         {
-            // Token'dan bilgileri al
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "ogrenci";
-            var userBolumIdClaim = User.FindFirst("BolumId")?.Value;
-            int? userBolumId = !string.IsNullOrEmpty(userBolumIdClaim) 
-                ? int.Parse(userBolumIdClaim) 
-                : null;
-
-            var result = _announcementService.GetByUserId(userRole, userBolumId);
-            if (result.Success)
-                return Ok(result);
-            return BadRequest(result);
+            var result = _announcementService.GetById(id);
+            if (!result.Success)
+                return NotFound(result);
+            if (!CanManage(result.Data))
+                return Forbid();
+            return Ok(result);
         }
 
-        /// <summary>
-        /// Hedef kitleye göre aktif duyuruları getirir
-        /// </summary>
-        /// <param name="role">Hedef kitle (öğrenci, öğretmen, all)</param>
-        [HttpGet("by-target/{role}")]
-        [Authorize]
-        public IActionResult GetByTargetAudience(string role)
-        {
-            var result = _announcementService.GetByTargetAudience(role);
-            if (result.Success)
-                return Ok(result);
-            return BadRequest(result);
-        }
-
-        /// <summary>
-        /// Popup olarak gösterilecek duyuruları getirir
-        /// </summary>
-        /// <param name="role">Kullanıcı rolü</param>
-        [HttpGet("popup/{role}")]
-        [Authorize]
-        public IActionResult GetPopup(string role)
-        {
-            var result = _announcementService.GetPopupAnnouncements(role);
-            if (result.Success)
-                return Ok(result);
-            return BadRequest(result);
-        }
-        
-        /// <summary>
-        /// 🆕 Kullanıcı için popup duyuruları getirir (bölüm kontrolü ile)
-        /// Token'dan rol ve BolumId alınır
-        /// </summary>
-        [HttpGet("my-popup")]
-        [Authorize]
-        public IActionResult GetMyPopup()
-        {
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "ogrenci";
-            var userBolumIdClaim = User.FindFirst("BolumId")?.Value;
-            int? userBolumId = !string.IsNullOrEmpty(userBolumIdClaim) 
-                ? int.Parse(userBolumIdClaim) 
-                : null;
-
-            var result = _announcementService.GetPopupAnnouncementsByUser(userRole, userBolumId);
-            if (result.Success)
-                return Ok(result);
-            return BadRequest(result);
-        }
-
-        /// <summary>
-        /// Yeni duyuru oluşturur (Admin)
-        /// </summary>
+        /// <summary>Yeni duyuru. Bölüm görevlisi sadece kendi bölümüne gönderebilir.</summary>
         [HttpPost]
-        [Authorize(Roles = "super.admin")]
-        public IActionResult Add([FromBody] AnnouncementCreateDto dto)
-        {
-            var announcement = new Announcement
-            {
-                Title = dto.Title,
-                Content = dto.Content,
-                Type = dto.Type,
-                Priority = dto.Priority,
-                TargetAudience = dto.TargetAudience,
-                TargetBolumId = dto.TargetBolumId,
-                PublishDate = dto.PublishDate,
-                ExpiryDate = dto.ExpiryDate,
-                ShowAsPopup = dto.ShowAsPopup,
-                CreatedBy = dto.CreatedBy,
-                CreatedDate = DateTime.Now,
-                IsActive = dto.IsActive
-            };
-
-            var result = _announcementService.Add(announcement);
-            if (result.Success)
-                return Created("", result);
-            return BadRequest(result);
-        }
-        
-        /// <summary>
-        /// 🆕 Yeni duyuru oluşturur (Yetki kontrolü ile)
-        /// Admin: Herkese gönderebilir
-        /// Görevli Personel: Sadece kendi bölümüne gönderebilir
-        /// </summary>
         [HttpPost("create")]
-        [Authorize(Roles = "Admin,super.admin,gorevli.personel")]
-        public IActionResult CreateWithPermission([FromBody] AnnouncementCreateDto dto)
+        [Authorize(Roles = Roles.Planlayici)]
+        public IActionResult Create([FromBody] AnnouncementCreateDto dto)
         {
-            // Token'dan bilgileri al
-            var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "ogrenci";
-            var userBolumIdClaim = User.FindFirst("BolumId")?.Value;
-            int? userBolumId = !string.IsNullOrEmpty(userBolumIdClaim) 
-                ? int.Parse(userBolumIdClaim) 
-                : null;
+            var targetError = CheckTarget(dto.TargetBolumId);
+            if (targetError != null)
+                return BadRequest(new ErrorResult(targetError));
 
-            // DTO'dan entity oluştur
             var announcement = new Announcement
             {
-                Title = dto.Title,
-                Content = dto.Content,
+                Title = dto.Title?.Trim() ?? "",
+                Content = dto.Content?.Trim() ?? "",
                 Type = dto.Type,
                 Priority = dto.Priority,
                 TargetAudience = dto.TargetAudience,
@@ -212,41 +193,52 @@ namespace API.Controllers
                 ExpiryDate = dto.ExpiryDate,
                 ShowAsPopup = dto.ShowAsPopup,
                 IsActive = dto.IsActive,
-                CreatedBy = dto.CreatedBy,
+                CreatedBy = User.GetUserId() ?? 0,
                 CreatedDate = DateTime.Now
             };
 
-            var result = _announcementService.AddWithPermission(announcement, userRole, userBolumId);
+            var validation = _announcementService.Validate(announcement);
+            if (!validation.Success)
+                return BadRequest(validation);
+
+            var result = _announcementService.Add(announcement);
             if (result.Success)
                 return Created("", result);
             return BadRequest(result);
         }
 
-        /// <summary>
-        /// Duyuru günceller (Admin)
-        /// </summary>
         [HttpPut]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Update([FromBody] AnnouncementUpdateDto dto)
         {
-            // Önce mevcut duyuruyu getir
             var existingResult = _announcementService.GetById(dto.Id);
             if (!existingResult.Success)
                 return NotFound(existingResult);
 
             var announcement = existingResult.Data;
-            
-            // DTO'dan gelen değerleri güncelle
-            announcement.Title = dto.Title;
-            announcement.Content = dto.Content;
+            if (!CanManage(announcement))
+                return Forbid();
+
+            var targetError = CheckTarget(dto.TargetBolumId);
+            if (targetError != null)
+                return BadRequest(new ErrorResult(targetError));
+
+            announcement.Title = dto.Title?.Trim() ?? "";
+            announcement.Content = dto.Content?.Trim() ?? "";
             announcement.Type = dto.Type;
             announcement.Priority = dto.Priority;
             announcement.TargetAudience = dto.TargetAudience;
             announcement.TargetBolumId = dto.TargetBolumId;
+            announcement.TargetBolum = null;
             announcement.PublishDate = dto.PublishDate;
             announcement.ExpiryDate = dto.ExpiryDate;
             announcement.ShowAsPopup = dto.ShowAsPopup;
             announcement.IsActive = dto.IsActive;
+            announcement.UpdatedDate = DateTime.Now;
+
+            var validation = _announcementService.Validate(announcement);
+            if (!validation.Success)
+                return BadRequest(validation);
 
             var result = _announcementService.Update(announcement);
             if (result.Success)
@@ -254,43 +246,56 @@ namespace API.Controllers
             return BadRequest(result);
         }
 
-        /// <summary>
-        /// Duyuruyu siler (Admin)
-        /// </summary>
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin,super.admin")]
+        [Authorize(Roles = Roles.Planlayici)]
         public IActionResult Delete(int id)
         {
             var announcement = _announcementService.GetById(id);
             if (!announcement.Success)
                 return NotFound(announcement);
+            if (!CanManage(announcement.Data))
+                return Forbid();
 
+            announcement.Data.TargetBolum = null;
             var result = _announcementService.Delete(announcement.Data);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
         }
 
-        /// <summary>
-        /// Duyuruyu okundu olarak işaretler
-        /// </summary>
+        /// <summary>Duyuruyu giriş yapan kullanıcı için okundu işaretler (açılır pencere bir daha gösterilmez).</summary>
+        [HttpPost("{id}/read")]
+        public IActionResult MarkMyRead(int id)
+        {
+            var userId = User.GetUserId();
+            if (userId == null)
+                return Unauthorized();
+
+            var result = _announcementService.MarkAsRead(id, userId.Value);
+            if (result.Success)
+                return Ok(result);
+            return BadRequest(result);
+        }
+
+        /// <summary>Eski istemciler için: kullanıcı sadece kendi adına işaretleyebilir.</summary>
         [HttpPost("mark-read")]
-        [Authorize]
         public IActionResult MarkAsRead([FromQuery] int announcementId, [FromQuery] int userId)
         {
+            if (User.GetUserId() != userId)
+                return Forbid();
+
             var result = _announcementService.MarkAsRead(announcementId, userId);
             if (result.Success)
                 return Ok(result);
             return BadRequest(result);
         }
 
-        /// <summary>
-        /// Kullanıcı duyuruyu okudu mu kontrol eder
-        /// </summary>
         [HttpGet("has-read")]
-        [Authorize]
         public IActionResult HasUserRead([FromQuery] int announcementId, [FromQuery] int userId)
         {
+            if (User.GetUserId() != userId && !User.IsInAnyRole(Roles.Yonetici))
+                return Forbid();
+
             var result = _announcementService.HasUserRead(announcementId, userId);
             if (result.Success)
                 return Ok(result);

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Business.Abstract;
+using Business.Constants;
+using Core.Extensions;
 using Entity.DTOs;
 using System;
 using System.Collections.Generic;
@@ -14,14 +16,18 @@ namespace API.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = Roles.Personel)]
     public class AkademikPersonelMusaitlikController : ControllerBase
     {
         private readonly IAkademikPersonelMusaitlikService _musaitlikService;
+        private readonly IAkademikPersonelService _akademikPersonelService;
 
-        public AkademikPersonelMusaitlikController(IAkademikPersonelMusaitlikService musaitlikService)
+        public AkademikPersonelMusaitlikController(
+            IAkademikPersonelMusaitlikService musaitlikService,
+            IAkademikPersonelService akademikPersonelService)
         {
             _musaitlikService = musaitlikService;
+            _akademikPersonelService = akademikPersonelService;
         }
 
         #region CRUD Endpoint'leri
@@ -32,6 +38,9 @@ namespace API.Controllers
         [HttpPost]
         public async Task<IActionResult> Add([FromBody] MusaitlikCreateDto dto)
         {
+            if (!CanManagePersonel(dto.AkademikPersonelId))
+                return Forbid();
+
             var result = await _musaitlikService.AddAsync(dto);
             if (result.Success)
                 return Created("", result);
@@ -44,6 +53,9 @@ namespace API.Controllers
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] MusaitlikUpdateDto dto)
         {
+            if (!CanManageRecord(dto.Id) || !CanManagePersonel(dto.AkademikPersonelId))
+                return Forbid();
+
             var result = await _musaitlikService.UpdateAsync(dto);
             if (result.Success)
                 return Ok(result);
@@ -56,6 +68,9 @@ namespace API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            if (!CanManageRecord(id))
+                return Forbid();
+
             var result = await _musaitlikService.DeleteAsync(id);
             if (result.Success)
                 return Ok(result);
@@ -68,6 +83,9 @@ namespace API.Controllers
         [HttpPost("batch-delete")]
         public async Task<IActionResult> DeleteBatch([FromBody] List<int> ids)
         {
+            if (ids == null || ids.Any(id => !CanManageRecord(id)))
+                return Forbid();
+
             var result = await _musaitlikService.DeleteBatchAsync(ids);
             if (result.Success)
                 return Ok(result);
@@ -81,6 +99,8 @@ namespace API.Controllers
         public IActionResult GetById(int id)
         {
             var result = _musaitlikService.GetById(id);
+            if (result.Success && result.Data != null && !CanReadPersonel(result.Data.AkademikPersonelId))
+                return Forbid();
             if (result.Success)
                 return Ok(result);
             return NotFound(result);
@@ -96,6 +116,8 @@ namespace API.Controllers
         [HttpGet("personel/{personelId}")]
         public async Task<IActionResult> GetByPersonelId(int personelId)
         {
+            if (!CanReadPersonel(personelId))
+                return Forbid();
             var result = await _musaitlikService.GetByPersonelIdAsync(personelId);
             if (result.Success)
                 return Ok(result);
@@ -108,6 +130,8 @@ namespace API.Controllers
         [HttpGet("takvim/{personelId}/{yil}/{ay}")]
         public async Task<IActionResult> GetTakvim(int personelId, int yil, int ay)
         {
+            if (!CanReadPersonel(personelId))
+                return Forbid();
             if (ay < 1 || ay > 12)
                 return BadRequest(new { Success = false, Message = "Ay 1-12 arasında olmalıdır." });
 
@@ -126,6 +150,8 @@ namespace API.Controllers
             [FromQuery] DateTime baslangic,
             [FromQuery] DateTime bitis)
         {
+            if (!CanReadPersonel(personelId))
+                return Forbid();
             if (baslangic > bitis)
                 return BadRequest(new { Success = false, Message = "Başlangıç tarihi bitiş tarihinden sonra olamaz." });
 
@@ -143,6 +169,7 @@ namespace API.Controllers
         /// Belirli tarih ve saatte müsait olan personelleri getirir
         /// </summary>
         [HttpGet("musait-personeller")]
+        [Authorize(Roles = Roles.Planlayici + "," + Roles.GorevliPersonel)] // Akademik personel yalnızca kendi müsaitliğini görür
         public async Task<IActionResult> GetMusaitPersoneller(
             [FromQuery] DateTime tarih,
             [FromQuery] string? baslangicSaati = null,
@@ -167,6 +194,7 @@ namespace API.Controllers
         /// Belirli tarih ve saatte meşgul olan personel ID'lerini getirir
         /// </summary>
         [HttpGet("mesgul-personeller")]
+        [Authorize(Roles = Roles.Planlayici + "," + Roles.GorevliPersonel)] // Akademik personel yalnızca kendi müsaitliğini görür
         public async Task<IActionResult> GetMesgulPersoneller(
             [FromQuery] DateTime tarih,
             [FromQuery] string? baslangicSaati = null,
@@ -197,6 +225,8 @@ namespace API.Controllers
             [FromQuery] string? baslangicSaati = null,
             [FromQuery] string? bitisSaati = null)
         {
+            if (!CanReadPersonel(personelId))
+                return Forbid();
             TimeSpan? baslangic = null;
             TimeSpan? bitis = null;
 
@@ -218,6 +248,55 @@ namespace API.Controllers
                 });
             }
             return BadRequest(result);
+        }
+
+        #endregion
+
+        #region Yetki Kontrolleri
+
+        /// <summary>
+        /// Yönetici tüm personelin müsaitliğini yönetebilir; diğerleri (bölüm görevlisi dahil) sadece kendisininkini.
+        /// Görevli başkasının "müsait değilim" kaydını silip onu gözetmen yapamasın.
+        /// </summary>
+        private bool CanManagePersonel(int akademikPersonelId)
+        {
+            if (User.IsInAnyRole(Roles.Yonetici))
+                return true;
+
+            var userId = User.GetUserId();
+            if (userId == null)
+                return false;
+
+            var personel = _akademikPersonelService.GetByUserId(userId.Value);
+            return personel.Success && personel.Data != null && personel.Data.Id == akademikPersonelId;
+        }
+
+        /// <summary>
+        /// Okuma: yönetici, bölüm görevlisi ve görevli personel herkesinkini (gözetmen seçimi); akademik personel yalnızca
+        /// kendisininkini görür.
+        /// </summary>
+        private bool CanReadPersonel(int akademikPersonelId)
+        {
+            if (User.IsInAnyRole(Roles.Planlayici + "," + Roles.GorevliPersonel))
+                return true;
+            var userId = User.GetUserId();
+            if (userId == null)
+                return false;
+            var personel = _akademikPersonelService.GetByUserId(userId.Value);
+            return personel.Success && personel.Data != null && personel.Data.Id == akademikPersonelId;
+        }
+
+        /// <summary>
+        /// Var olan bir müsaitlik kaydının sahibini kontrol eder. Kayıt yoksa servis kendi hatasını döndürsün diye true döner
+        /// (sadece yönetici için); diğer kullanıcılar için false.
+        /// </summary>
+        private bool CanManageRecord(int musaitlikId)
+        {
+            var record = _musaitlikService.GetById(musaitlikId);
+            if (!record.Success || record.Data == null)
+                return User.IsInAnyRole(Roles.Yonetici);
+
+            return CanManagePersonel(record.Data.AkademikPersonelId);
         }
 
         #endregion
